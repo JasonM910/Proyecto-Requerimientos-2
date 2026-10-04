@@ -1,0 +1,76 @@
+{
+  "users": [
+    {
+      "id": "proveedor-demo",
+      "name": "Proveedor demo",
+      "initials": "PD",
+      "role": "Proveedor"
+    }
+  ],
+  "categories": [
+    {
+      "name": "Plomería",
+      "icon": "◈",
+      "color": "blue"
+    },
+    {
+      "name": "Electricidad",
+      "icon": "ϟ",
+      "color": "yellow"
+    },
+    {
+      "name": "Limpieza",
+      "icon": "✦",
+      "color": "purple"
+    },
+    {
+      "name": "Jardinería",
+      "icon": "❀",
+      "color": "green"
+    },
+    {
+      "name": "Carpintería",
+      "icon": "⌘",
+      "color": "orange"
+    },
+    {
+      "name": "Cuidado de personas",
+      "icon": "♡",
+      "color": "pink"
+    },
+    {
+      "name": "Otros",
+      "icon": "▦",
+      "color": "gray"
+    }
+  ],
+  "services": [
+    {
+      "id": "demo-1",
+      "providerId": "proveedor-demo",
+      "title": "Reparación e instalación de tuberías",
+      "category": "Plomería",
+      "description": "Solución de fugas, instalación de grifería y mantenimiento de tuberías para cocinas y baños. Trabajo cuidadoso y atención a los detalles de cada hogar.",
+      "createdAt": "2026-10-02T12:00:00.000Z",
+      "updatedAt": "2026-10-04T22:02:06.321Z"
+    },
+    {
+      "id": "demo-2",
+      "providerId": "proveedor-demo",
+      "title": "Limpieza profunda del hogar",
+      "category": "Limpieza",
+      "description": "Limpieza detallada de habitaciones, cocina y baños. Ideal para preparar tu hogar para una ocasión especial o darle un nuevo comienzo a tus espacios.",
+      "createdAt": "2026-09-29T12:00:00.000Z",
+      "updatedAt": "2026-09-29T12:00:00.000Z"
+    },
+    {
+      "id": "demo-3",
+      "providerId": "proveedor-demo",
+      "title": "Mantenimiento de jardines",
+      "category": "Jardinería",
+      "description": "Poda de plantas, corte de césped y cuidado general de áreas verdes. Adaptamos el mantenimiento a las necesidades y el tamaño de tu jardín.",
+      "createdAt": "2026-09-25T12:00:00.000Z",
+      "updatedAt": "2026-09-25T12:00:00.000Z"
+    }
+  ]
+}

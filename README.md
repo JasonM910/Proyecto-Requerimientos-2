@@ -1,29 +1,23 @@
-# React + Vite
+# Hogar+
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Página para que un proveedor publique y administre sus servicios del hogar. Permite crear publicaciones con título, descripción y categoría, consultarlas, filtrarlas, editarlas y eliminarlas.
 
-## Comandos
+## Ejecutar
 
 ```bash
 npm install
 npm run dev
 ```
 
-Para generar la versión de producción:
+Abre la dirección que muestre Vite. Para comprobar o servir la versión compilada:
 
 ```bash
 npm run build
+npm run preview
 ```
 
-Currently, two official plugins are available:
+## Datos
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+El usuario, las categorías y las publicaciones iniciales están en [`data/db.json`](data/db.json). La página obtiene los datos de la API local; al crear, editar o eliminar una publicación, el servidor actualiza ese mismo archivo. Los cambios se conservan después de recargar la página y pueden revisarse directamente en el JSON.
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+La aplicación utiliza por ahora un único usuario de demostración. No incluye inicio de sesión. Para recuperar los datos iniciales, restaura `data/db.json` desde Git.
