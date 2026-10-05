@@ -5,6 +5,24 @@
       "name": "Proveedor demo",
       "initials": "PD",
       "role": "Proveedor"
+    },
+    {
+      "id": "proveedor-2",
+      "name": "Laura Jiménez",
+      "initials": "LJ",
+      "role": "Proveedor"
+    },
+    {
+      "id": "proveedor-3",
+      "name": "Andrés Solís",
+      "initials": "AS",
+      "role": "Proveedor"
+    },
+    {
+      "id": "proveedor-4",
+      "name": "Marta Rojas",
+      "initials": "MR",
+      "role": "Proveedor"
     }
   ],
   "categories": [
@@ -71,6 +89,126 @@
       "description": "Poda de plantas, corte de césped y cuidado general de áreas verdes. Adaptamos el mantenimiento a las necesidades y el tamaño de tu jardín.",
       "createdAt": "2026-09-25T12:00:00.000Z",
       "updatedAt": "2026-09-25T12:00:00.000Z"
+    },
+    {
+      "id": "demo-4",
+      "providerId": "proveedor-2",
+      "title": "Instalaciones eléctricas residenciales",
+      "category": "Electricidad",
+      "description": "Instalación de tomacorrientes, iluminación y cableado en viviendas nuevas o remodelaciones, cumpliendo las normas de seguridad.",
+      "createdAt": "2026-09-20T12:00:00.000Z",
+      "updatedAt": "2026-09-20T12:00:00.000Z"
+    },
+    {
+      "id": "demo-5",
+      "providerId": "proveedor-2",
+      "title": "Revisión de tableros y cortocircuitos",
+      "category": "Electricidad",
+      "description": "Diagnóstico de fallas eléctricas, cambio de breakers y revisión del tablero para evitar cortes y riesgos en el hogar.",
+      "createdAt": "2026-09-18T12:00:00.000Z",
+      "updatedAt": "2026-09-18T12:00:00.000Z"
+    },
+    {
+      "id": "demo-6",
+      "providerId": "proveedor-3",
+      "title": "Muebles a medida y reparaciones",
+      "category": "Carpintería",
+      "description": "Fabricación de muebles de cocina, repisas y escritorios a medida, además de reparación de muebles de madera.",
+      "createdAt": "2026-09-22T12:00:00.000Z",
+      "updatedAt": "2026-09-22T12:00:00.000Z"
+    },
+    {
+      "id": "demo-7",
+      "providerId": "proveedor-3",
+      "title": "Instalación de puertas y closets",
+      "category": "Carpintería",
+      "description": "Colocación y ajuste de puertas, closets y estantes, con acabados limpios y materiales de calidad.",
+      "createdAt": "2026-09-15T12:00:00.000Z",
+      "updatedAt": "2026-09-15T12:00:00.000Z"
+    },
+    {
+      "id": "demo-8",
+      "providerId": "proveedor-4",
+      "title": "Acompañamiento de personas adultas mayores",
+      "category": "Cuidado de personas",
+      "description": "Compañía y apoyo diario para personas adultas mayores: comidas, paseos, recordatorio de medicamentos y atención paciente.",
+      "createdAt": "2026-09-27T12:00:00.000Z",
+      "updatedAt": "2026-09-27T12:00:00.000Z"
+    },
+    {
+      "id": "demo-9",
+      "providerId": "proveedor-4",
+      "title": "Limpieza de apartamentos y oficinas pequeñas",
+      "category": "Limpieza",
+      "description": "Limpieza semanal o quincenal de apartamentos y oficinas pequeñas, con productos suaves y horarios flexibles.",
+      "createdAt": "2026-09-12T12:00:00.000Z",
+      "updatedAt": "2026-09-12T12:00:00.000Z"
+    }
+  ],
+  "profiles": [
+    {
+      "providerId": "proveedor-demo",
+      "name": "Proveedor demo",
+      "headline": "Servicios del hogar",
+      "about": "Ofrezco servicios para el hogar con atención a los detalles y trato cercano.",
+      "experienceYears": 8,
+      "experience": "Trabajos de plomería, limpieza y mantenimiento de jardines en viviendas y apartamentos.",
+      "zones": [
+        "Quesada",
+        "Ciudad Quesada centro"
+      ],
+      "email": "proveedor@ejemplo.com",
+      "phone": "8888 0000",
+      "address": "Barrio demo, Quesada",
+      "updatedAt": "2026-10-04T22:00:00.000Z"
+    },
+    {
+      "providerId": "proveedor-2",
+      "name": "Laura Jiménez",
+      "headline": "Electricista residencial",
+      "about": "Trabajo ordenado y seguro, explicando cada paso al cliente.",
+      "experienceYears": 12,
+      "experience": "Instalaciones y reparaciones eléctricas en casas y locales pequeños.",
+      "zones": [
+        "Quesada",
+        "Aguas Zarcas"
+      ],
+      "email": "laura@ejemplo.com",
+      "phone": "8777 1111",
+      "address": "Barrio demo 2",
+      "updatedAt": "2026-09-30T12:00:00.000Z"
+    },
+    {
+      "providerId": "proveedor-3",
+      "name": "Andrés Solís",
+      "headline": "Carpintero",
+      "about": "Me gusta que cada pieza quede justo como el cliente la imaginó.",
+      "experienceYears": 15,
+      "experience": "Muebles a medida, puertas y closets para viviendas.",
+      "zones": [
+        "Florencia",
+        "Pital"
+      ],
+      "email": "andres@ejemplo.com",
+      "phone": "8666 2222",
+      "address": "Barrio demo 3",
+      "updatedAt": "2026-09-30T12:00:00.000Z"
+    },
+    {
+      "providerId": "proveedor-4",
+      "name": "Marta Rojas",
+      "headline": "Cuidadora y limpieza del hogar",
+      "about": "Atención cercana y responsable, con referencias disponibles.",
+      "experienceYears": 6,
+      "experience": "Cuidado de personas adultas mayores y limpieza de espacios pequeños.",
+      "zones": [
+        "Quesada",
+        "La Fortuna"
+      ],
+      "email": "marta@ejemplo.com",
+      "phone": "8555 3333",
+      "address": "Barrio demo 4",
+      "updatedAt": "2026-09-30T12:00:00.000Z"
     }
   ]
 }
