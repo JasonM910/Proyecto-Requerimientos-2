@@ -4,7 +4,10 @@
       "id": "proveedor-demo",
       "name": "Proveedor demo",
       "initials": "PD",
-      "role": "Proveedor"
+      "role": "Proveedor",
+      "email": "proveedor@hogar.test",
+      "username": "proveedor.demo",
+      "passwordHash": "scrypt:3534991b62725c2b592829159f6e7c7d:87862c6eaf0bf9563c7b3ecc512fbdd395c7ba1522009e055497595d456b66bf19c6db204e3aa6c8207cd797770cd86d77d6e2dd1b5348c8081ea3093e4d71dc"
     },
     {
       "id": "proveedor-2",
@@ -23,6 +26,15 @@
       "name": "Marta Rojas",
       "initials": "MR",
       "role": "Proveedor"
+    },
+    {
+      "id": "cliente-demo",
+      "name": "Ana López",
+      "initials": "AL",
+      "role": "Cliente",
+      "email": "cliente@hogar.test",
+      "username": "cliente.demo",
+      "passwordHash": "scrypt:daa0cd8000591a71ebb2ad79a02564fa:2df4a6240e04665874673689572629da481fe811efea101bb9a7e9d3818f23b15fe2cd6626981f5fc58ff6e6eb2b757f607ef71f01b747888448338c24d62c6f"
     }
   ],
   "categories": [
@@ -160,7 +172,10 @@
       "email": "proveedor@ejemplo.com",
       "phone": "8888 0000",
       "address": "Barrio demo, Quesada",
-      "updatedAt": "2026-10-04T22:00:00.000Z"
+      "updatedAt": "2026-10-04T22:00:00.000Z",
+      "legalId": "DEMO-123456",
+      "verificationDocuments": "Documento de identidad registrado (demo)",
+      "bankAccount": "Cuenta de demostración"
     },
     {
       "providerId": "proveedor-2",
@@ -209,6 +224,51 @@
       "phone": "8555 3333",
       "address": "Barrio demo 4",
       "updatedAt": "2026-09-30T12:00:00.000Z"
+    }
+  ],
+  "clientProfiles": [
+    {
+      "clientId": "cliente-demo",
+      "name": "Ana López",
+      "phone": "8888 1234",
+      "email": "ana@ejemplo.com",
+      "address": "Quesada, Barrio El Carmen, casa 12",
+      "updatedAt": "2026-10-08T12:00:00.000Z"
+    }
+  ],
+  "requests": [
+    {
+      "id": "sol-1",
+      "clientId": "cliente-demo",
+      "providerId": "proveedor-demo",
+      "serviceId": "demo-1",
+      "serviceTitle": "Reparación e instalación de tuberías",
+      "providerName": "Proveedor demo",
+      "need": "Reparar una fuga debajo del fregadero.",
+      "createdAt": "2026-10-09T15:00:00.000Z",
+      "status": "Pendiente"
+    },
+    {
+      "id": "sol-2",
+      "clientId": "cliente-demo",
+      "providerId": "proveedor-demo",
+      "serviceId": "demo-2",
+      "serviceTitle": "Limpieza profunda del hogar",
+      "providerName": "Proveedor demo",
+      "need": "Limpieza de cocina y baños.",
+      "createdAt": "2026-10-06T14:00:00.000Z",
+      "status": "Aceptado"
+    },
+    {
+      "id": "sol-3",
+      "clientId": "cliente-demo",
+      "providerId": "proveedor-demo",
+      "serviceId": "demo-3",
+      "serviceTitle": "Mantenimiento de jardines",
+      "providerName": "Proveedor demo",
+      "need": "Poda y cuidado del jardín.",
+      "createdAt": "2026-09-28T14:00:00.000Z",
+      "status": "Finalizado"
     }
   ]
 }

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { clearSession, createSession, publicUser, sessionUser, verifyCredentials } from './auth.js'
 
 const databasePath = process.env.HOGAR_DB_PATH
   ? resolve(process.env.HOGAR_DB_PATH)
@@ -19,7 +20,7 @@ class ApiError extends Error {
 
 async function readDatabase() {
   const database = JSON.parse(await readFile(databasePath, 'utf8'))
-  if (!Array.isArray(database.users) || !Array.isArray(database.categories) || !Array.isArray(database.services)) {
+  if (!Array.isArray(database.users) || !Array.isArray(database.categories) || !Array.isArray(database.services) || !Array.isArray(database.profiles) || !Array.isArray(database.clientProfiles) || !Array.isArray(database.requests)) {
     throw new Error('La estructura de data/db.json no es válida.')
   }
   return database
@@ -74,9 +75,6 @@ function validateService(payload, database) {
   return { title, description, category }
 }
 
-// RF-05: datos que nunca salen en el perfil público (clasificación pendiente de confirmar con el cliente).
-const privateProfileFields = ['email', 'phone', 'address']
-
 function cleanText(value, max, label) {
   if (value === undefined || value === null) return ''
   if (typeof value !== 'string') throw new ApiError(400, `${label} no es válido.`)
@@ -115,6 +113,9 @@ function validateProfile(payload) {
     email,
     phone: cleanText(payload.phone, 120, 'El teléfono'),
     address: cleanText(payload.address, 120, 'La dirección'),
+    legalId: cleanText(payload.legalId, 60, 'La identificación legal'),
+    verificationDocuments: cleanText(payload.verificationDocuments, 200, 'Los documentos de verificación'),
+    bankAccount: cleanText(payload.bankAccount, 120, 'La cuenta bancaria'),
   }
 }
 
@@ -122,14 +123,42 @@ function findProfile(database, providerId = demoUserId) {
   const existing = database.profiles?.find((item) => item.providerId === providerId)
   if (existing) return existing
   const user = database.users.find((item) => item.id === providerId)
-  return { providerId, name: user?.name || '', headline: '', about: '', experienceYears: null, experience: '', zones: [], email: '', phone: '', address: '', updatedAt: null }
+  return { providerId, name: user?.name || '', headline: '', about: '', experienceYears: null, experience: '', zones: [], email: '', phone: '', address: '', legalId: '', verificationDocuments: '', bankAccount: '', updatedAt: null }
 }
 
 function toPublicProfile(profile) {
-  return Object.fromEntries(Object.entries(profile).filter(([key]) => !privateProfileFields.includes(key)))
+  const { providerId, name, headline, about, experienceYears, experience, zones } = profile
+  return { providerId, name, headline, about, experienceYears, experience, zones }
 }
 
-// RF-06 y RF-07: búsqueda de servicios para el cliente. Solo devuelve datos públicos del proveedor.
+function findClientProfile(database, clientId) {
+  const existing = database.clientProfiles.find((item) => item.clientId === clientId)
+  if (existing) return existing
+  const user = database.users.find((item) => item.id === clientId)
+  return { clientId, name: user?.name || '', phone: '', email: '', address: '', updatedAt: null }
+}
+
+function validateClientProfile(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new ApiError(400, 'Datos del cliente no válidos.')
+  const name = cleanText(payload.name, 80, 'El nombre')
+  const phone = cleanText(payload.phone, 20, 'El teléfono')
+  const email = cleanText(payload.email, 120, 'El correo')
+  const address = cleanText(payload.address, 200, 'La dirección')
+  if (name.length < 2) throw new ApiError(400, 'Escribe tu nombre completo.')
+  if (!/^[+\d\s-]+$/.test(phone) || phone.replace(/\D/g, '').length < 8) throw new ApiError(400, 'Escribe un teléfono válido de al menos 8 dígitos.')
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ApiError(400, 'Escribe un correo válido.')
+  if (address.length < 5) throw new ApiError(400, 'Escribe una dirección o punto de referencia.')
+  return { name, phone, email, address }
+}
+
+const chronological = (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+const contactAllowed = (status) => ['Aceptado', 'En proceso', 'Finalizado'].includes(status)
+
+function requireRole(user, role) {
+  if (user.role !== role) throw new ApiError(403, 'No tienes acceso a este módulo.')
+}
+
+// La búsqueda conserva solo la información pública del proveedor.
 const fold = (value) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
 function searchServices(database, params) {
@@ -166,7 +195,7 @@ function searchServices(database, params) {
         category: service.category,
         description: service.description,
         updatedAt: service.updatedAt,
-        provider: { id: profile.providerId, name: profile.name, headline: profile.headline, about: profile.about, experienceYears: profile.experienceYears, zones: profile.zones ?? [] },
+        provider: { id: profile.providerId, name: profile.name, headline: profile.headline, about: profile.about, experienceYears: profile.experienceYears, experience: profile.experience, zones: profile.zones ?? [] },
       },
     })
   }
@@ -181,53 +210,138 @@ function searchServices(database, params) {
 
 export async function jsonApi(request, response, next) {
   const pathname = new URL(request.url, 'http://localhost').pathname
+  if (pathname.startsWith('/data/')) return respond(response, 404, { error: 'Ruta no encontrada.' })
   if (!pathname.startsWith('/api/')) return next()
 
   try {
-    if (pathname === '/api/dashboard' && request.method === 'GET') {
+    if (pathname === '/api/auth/session' && request.method === 'GET') {
       const database = await readDatabase()
-      const user = database.users.find((item) => item.id === demoUserId)
-      if (!user) throw new Error('No se encontró el usuario demo en data/db.json.')
-      return respond(response, 200, { user, categories: database.categories, services: database.services.filter((item) => item.providerId === demoUserId) })
+      const user = sessionUser(request, database)
+      return respond(response, 200, { user: user ? publicUser(user) : null })
+    }
+
+    if (pathname === '/api/auth/login' && request.method === 'POST') {
+      const payload = await readBody(request)
+      const identifier = typeof payload?.identifier === 'string' ? payload.identifier.trim() : ''
+      const password = payload?.password
+      const validIdentifier = identifier.includes('@')
+        ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)
+        : /^[a-z0-9._-]{3,30}$/i.test(identifier)
+      if (!validIdentifier || identifier.length > 120 || typeof password !== 'string' || !password || password.length > 200) {
+        throw new ApiError(400, 'Ingresa un correo o usuario válido y una contraseña.')
+      }
+      const user = verifyCredentials(await readDatabase(), identifier, password)
+      if (!user) throw new ApiError(401, 'Credenciales incorrectas.')
+      createSession(request, response, user)
+      return respond(response, 200, { user: publicUser(user) })
+    }
+
+    if (pathname === '/api/auth/logout' && request.method === 'POST') {
+      clearSession(request, response)
+      return respond(response, 200, { ok: true })
+    }
+
+    const database = await readDatabase()
+    const user = sessionUser(request, database)
+    if (!user) throw new ApiError(401, 'Inicia sesión para continuar.')
+
+    if (pathname === '/api/dashboard' && request.method === 'GET') {
+      requireRole(user, 'Proveedor')
+      return respond(response, 200, { user: publicUser(user), categories: database.categories, services: database.services.filter((item) => item.providerId === user.id) })
     }
 
     if (pathname === '/api/search' && request.method === 'GET') {
+      requireRole(user, 'Cliente')
       const params = new URL(request.url, 'http://localhost').searchParams
-      return respond(response, 200, searchServices(await readDatabase(), params))
+      return respond(response, 200, searchServices(database, params))
     }
 
     if (pathname === '/api/profile' && request.method === 'GET') {
-      return respond(response, 200, findProfile(await readDatabase()))
+      requireRole(user, 'Proveedor')
+      return respond(response, 200, findProfile(database, user.id))
     }
 
     if (pathname === '/api/profile/public' && request.method === 'GET') {
-      return respond(response, 200, toPublicProfile(findProfile(await readDatabase())))
+      requireRole(user, 'Cliente')
+      return respond(response, 200, toPublicProfile(findProfile(database)))
     }
 
     if (pathname === '/api/profile' && request.method === 'PUT') {
+      requireRole(user, 'Proveedor')
       const payload = await readBody(request)
       const profile = await mutateDatabase((database) => {
         const fields = validateProfile(payload)
-        database.profiles ??= []
-        let current = database.profiles.find((item) => item.providerId === demoUserId)
+        let current = database.profiles.find((item) => item.providerId === user.id)
         if (!current) {
-          current = { providerId: demoUserId }
+          current = { providerId: user.id }
           database.profiles.push(current)
         }
         Object.assign(current, fields, { updatedAt: new Date().toISOString() })
-        const user = database.users.find((item) => item.id === demoUserId)
-        if (user) Object.assign(user, { name: fields.name, initials: initialsOf(fields.name) })
+        const account = database.users.find((item) => item.id === user.id)
+        if (account) Object.assign(account, { name: fields.name, initials: initialsOf(fields.name) })
         return current
       })
       return respond(response, 200, profile)
     }
 
+    if (pathname === '/api/client/profile' && request.method === 'GET') {
+      requireRole(user, 'Cliente')
+      return respond(response, 200, findClientProfile(database, user.id))
+    }
+
+    if (pathname === '/api/client/profile' && request.method === 'PUT') {
+      requireRole(user, 'Cliente')
+      const payload = await readBody(request)
+      const profile = await mutateDatabase((currentDatabase) => {
+        const fields = validateClientProfile(payload)
+        let current = currentDatabase.clientProfiles.find((item) => item.clientId === user.id)
+        if (!current) {
+          current = { clientId: user.id }
+          currentDatabase.clientProfiles.push(current)
+        }
+        Object.assign(current, fields, { updatedAt: new Date().toISOString() })
+        const account = currentDatabase.users.find((item) => item.id === user.id)
+        if (account) Object.assign(account, { name: fields.name, initials: initialsOf(fields.name) })
+        return current
+      })
+      return respond(response, 200, profile)
+    }
+
+    if (pathname === '/api/client/requests' && request.method === 'GET') {
+      requireRole(user, 'Cliente')
+      const requests = database.requests.filter((item) => item.clientId === user.id)
+        .sort(chronological).map(({ id, serviceTitle, providerName, createdAt, status, need }) =>
+          ({ id, serviceTitle, providerName, createdAt, status, need }))
+      return respond(response, 200, { requests })
+    }
+
+    if (pathname === '/api/provider/requests' && request.method === 'GET') {
+      requireRole(user, 'Proveedor')
+      const requests = database.requests.filter((item) => item.providerId === user.id)
+        .sort(chronological).map((item) => {
+          const client = findClientProfile(database, item.clientId)
+          return {
+            id: item.id,
+            serviceTitle: item.serviceTitle,
+            createdAt: item.createdAt,
+            status: item.status,
+            need: item.need,
+            clientName: client.name,
+            clientContact: contactAllowed(item.status)
+              ? { phone: client.phone, email: client.email, address: client.address }
+              : null,
+          }
+        })
+      return respond(response, 200, { requests })
+    }
+
     if (pathname === '/api/services' && request.method === 'POST') {
+      requireRole(user, 'Proveedor')
       const payload = await readBody(request)
       const service = await mutateDatabase((database) => {
         const fields = validateService(payload, database)
         const timestamp = new Date().toISOString()
-        const created = { id: randomUUID(), providerId: demoUserId, ...fields, createdAt: timestamp, updatedAt: timestamp }
+        const created = { id: randomUUID(), providerId: user.id, ...fields, createdAt: timestamp, updatedAt: timestamp }
         database.services.unshift(created)
         return created
       })
@@ -236,9 +350,10 @@ export async function jsonApi(request, response, next) {
 
     const match = pathname.match(/^\/api\/services\/([a-zA-Z0-9-]+)$/)
     if (match && request.method === 'PUT') {
+      requireRole(user, 'Proveedor')
       const payload = await readBody(request)
       const service = await mutateDatabase((database) => {
-        const current = database.services.find((item) => item.id === match[1] && item.providerId === demoUserId)
+        const current = database.services.find((item) => item.id === match[1] && item.providerId === user.id)
         if (!current) throw new ApiError(404, 'El servicio no existe.')
         Object.assign(current, validateService(payload, database), { updatedAt: new Date().toISOString() })
         return current
@@ -247,8 +362,9 @@ export async function jsonApi(request, response, next) {
     }
 
     if (match && request.method === 'DELETE') {
+      requireRole(user, 'Proveedor')
       await mutateDatabase((database) => {
-        const index = database.services.findIndex((item) => item.id === match[1] && item.providerId === demoUserId)
+        const index = database.services.findIndex((item) => item.id === match[1] && item.providerId === user.id)
         if (index === -1) throw new ApiError(404, 'El servicio no existe.')
         database.services.splice(index, 1)
       })

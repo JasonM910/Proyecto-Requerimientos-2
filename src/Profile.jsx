@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { getProfile, updateProfile } from './api.js'
 
-// RF-05: qué datos son públicos y cuáles privados todavía se valida con el cliente.
-// Para cambiar la clasificación, edita estas dos listas (y PRIVATE_FIELDS en el servidor).
+// RF-08: los campos privados solo se cargan en la vista del proveedor autenticado.
 const PRIVATE_FIELDS = [
   { key: 'email', label: 'Correo electrónico', type: 'email', placeholder: 'nombre@correo.com' },
   { key: 'phone', label: 'Teléfono', type: 'tel', placeholder: '8888 0000' },
   { key: 'address', label: 'Dirección', type: 'text', placeholder: 'Barrio, distrito o referencia' },
+  { key: 'legalId', label: 'Identificación legal', type: 'text', placeholder: 'Número de identificación', maxLength: 60 },
+  { key: 'verificationDocuments', label: 'Documento de verificación', type: 'text', placeholder: 'Referencia interna del documento', maxLength: 200 },
+  { key: 'bankAccount', label: 'Cuenta bancaria', type: 'text', placeholder: 'Cuenta para pagos', maxLength: 120 },
 ]
 const MAX_ZONES = 10
 
@@ -22,7 +24,7 @@ function Icon({ name, size = 16 }) {
 }
 
 const initialsOf = (name) => name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '—'
-const toForm = (p) => ({ name: p.name || '', headline: p.headline || '', about: p.about || '', experienceYears: String(p.experienceYears ?? ''), experience: p.experience || '', zones: p.zones || [], email: p.email || '', phone: p.phone || '', address: p.address || '' })
+const toForm = (p) => ({ name: p.name || '', headline: p.headline || '', about: p.about || '', experienceYears: String(p.experienceYears ?? ''), experience: p.experience || '', zones: p.zones || [], email: p.email || '', phone: p.phone || '', address: p.address || '', legalId: p.legalId || '', verificationDocuments: p.verificationDocuments || '', bankAccount: p.bankAccount || '' })
 
 function validate(form) {
   const years = form.experienceYears.trim()
@@ -33,7 +35,7 @@ function validate(form) {
   return ''
 }
 
-// Lo que ve el cliente: solo campos públicos. El servidor aplica el mismo filtro en /api/profile/public.
+// La vista previa utiliza solo los campos publicos del formulario.
 function PublicCard({ data }) {
   const years = data.experienceYears.trim()
   return <article className="public-card" aria-label="Vista pública del perfil">
@@ -50,7 +52,7 @@ function PublicCard({ data }) {
       <h4>Zonas de atención</h4>
       {data.zones.length ? <div className="chips" style={{ marginTop: 0 }}>{data.zones.map((z) => <span className="chip static" key={z}>{z}</span>)}</div> : <p className="muted">Aún no has agregado zonas.</p>}
     </div>
-    <div className="public-note"><Icon name="lock" size={14} /><span>Tu correo, teléfono y dirección no aparecen en esta vista.</span></div>
+    <div className="public-note"><Icon name="lock" size={14} /><span>Tus datos de contacto, identificación y cuenta bancaria no aparecen en esta vista.</span></div>
   </article>
 }
 
@@ -98,6 +100,7 @@ function Profile({ onNotice, onSaved }) {
         name: form.name.trim(), headline: form.headline.trim(), about: form.about.trim(), experience: form.experience.trim(),
         experienceYears: years === '' ? null : Number(years), zones: form.zones,
         email: form.email.trim(), phone: form.phone.trim(), address: form.address.trim(),
+        legalId: form.legalId.trim(), verificationDocuments: form.verificationDocuments.trim(), bankAccount: form.bankAccount.trim(),
       })
       setSaved(toForm(updated))
       setForm(toForm(updated))
@@ -142,9 +145,9 @@ function Profile({ onNotice, onSaved }) {
 
         <section className="pf-card">
           <h2>Datos privados <span className="pf-badge private"><Icon name="lock" size={12} /> Solo tú</span></h2>
-          <p>No se muestran en tu perfil público.</p>
+          <p>No se muestran en tu perfil público ni en el catálogo de búsqueda.</p>
           <div className="pf-grid">
-            {PRIVATE_FIELDS.map((field) => <div className={field.key === 'address' ? 'pf-field wide' : 'pf-field'} key={field.key}><label htmlFor={`pf-${field.key}`}>{field.label}</label><input id={`pf-${field.key}`} type={field.type} maxLength={120} placeholder={field.placeholder} value={form[field.key]} onChange={set(field.key)} /></div>)}
+            {PRIVATE_FIELDS.map((field) => <div className={field.key === 'address' || field.key === 'verificationDocuments' ? 'pf-field wide' : 'pf-field'} key={field.key}><label htmlFor={`pf-${field.key}`}>{field.label}</label><input id={`pf-${field.key}`} type={field.type} maxLength={field.maxLength || 120} placeholder={field.placeholder} value={form[field.key]} onChange={set(field.key)} /></div>)}
           </div>
         </section>
 

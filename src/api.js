@@ -3,6 +3,7 @@ async function request(path, options) {
   try {
     response = await fetch(path, {
       ...options,
+      credentials: 'same-origin',
       headers: options?.body ? { 'Content-Type': 'application/json' } : undefined,
     })
   } catch {
@@ -15,12 +16,19 @@ async function request(path, options) {
 }
 
 export const getDashboard = () => request('/api/dashboard')
+export const getSession = () => request('/api/auth/session')
+export const login = (credentials) => request('/api/auth/login', { method: 'POST', body: JSON.stringify(credentials) })
+export const logout = () => request('/api/auth/logout', { method: 'POST' })
 export const createService = (service) => request('/api/services', { method: 'POST', body: JSON.stringify(service) })
 export const updateService = (id, service) => request(`/api/services/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(service) })
 export const removeService = (id) => request(`/api/services/${encodeURIComponent(id)}`, { method: 'DELETE' })
 export const getProfile = () => request('/api/profile')
 export const updateProfile = (profile) => request('/api/profile', { method: 'PUT', body: JSON.stringify(profile) })
 export const getPublicProfile = () => request('/api/profile/public')
+export const getClientProfile = () => request('/api/client/profile')
+export const updateClientProfile = (profile) => request('/api/client/profile', { method: 'PUT', body: JSON.stringify(profile) })
+export const getClientRequests = () => request('/api/client/requests')
+export const getProviderRequests = () => request('/api/provider/requests')
 export function searchServices({ q = '', category = '', zone = '' } = {}) {
   const params = new URLSearchParams()
   if (q) params.set('q', q)

@@ -96,6 +96,7 @@ function Search() {
           <div className="public-block">
             <div className="public-head"><span className="avatar">{initialsOf(detail.provider.name)}</span><div><h3>{detail.provider.name}</h3><p>{detail.provider.headline || 'Proveedor de servicios'}{detail.provider.experienceYears != null && ` · ${yearsLabel(detail.provider.experienceYears)}`}</p></div></div>
             {detail.provider.about && <p>{detail.provider.about}</p>}
+            {detail.provider.experience && <div><h4>Experiencia</h4><p>{detail.provider.experience}</p></div>}
             <h4 style={{ marginTop: 14 }}>Zonas de atención</h4>
             <Zones zones={detail.provider.zones} />
           </div>

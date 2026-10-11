@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import Auth from './Auth.jsx'
+import ClientApp from './ClientApp.jsx'
 import Profile from './Profile.jsx'
-import Search from './Search.jsx'
-import { createService, getDashboard, removeService, updateService } from './api.js'
+import Requests from './Requests.jsx'
+import { createService, getDashboard, getSession, logout, removeService, updateService } from './api.js'
 
 const blankForm = { title: '', category: '', description: '' }
 
@@ -29,10 +31,10 @@ function dateLabel(value) {
   return Number.isNaN(date.getTime()) ? 'Sin fecha' : new Intl.DateTimeFormat('es-CR', { day: 'numeric', month: 'short', year: 'numeric' }).format(date)
 }
 
-function App() {
+function ProviderApp({ initialUser, onLogout }) {
   const [services, setServices] = useState([])
   const [categories, setCategories] = useState([])
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState(initialUser)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [actionError, setActionError] = useState('')
@@ -124,12 +126,12 @@ function App() {
     <aside className="sidebar">
       <div className="brand"><span className="brand-icon"><Icon name="home" size={21} /></span><span><strong>hogar<span>+</span></strong><small>ESPACIO DEL PROVEEDOR</small></span></div>
       <div className="nav-label">MENÚ PRINCIPAL</div>
-      <nav aria-label="Navegación principal"><button className={view === 'servicios' ? 'nav-link active' : 'nav-link'} onClick={() => setView('servicios')}><Icon name="grid" /> Mis servicios</button><button className={view === 'perfil' ? 'nav-link active' : 'nav-link'} onClick={() => setView('perfil')}><Icon name="user" /> Mi perfil</button>{view === 'servicios' && <a className="nav-link" href="#categorias"><Icon name="layers" /> Categorías</a>}</nav><div className="nav-label">PARA CLIENTES</div><nav aria-label="Navegación de clientes"><button className={view === 'buscar' ? 'nav-link active' : 'nav-link'} onClick={() => setView('buscar')}><Icon name="search" /> Buscar servicios</button></nav>
-      <div className="sidebar-bottom"><div className="sidebar-tip"><Icon name="sparkle" size={20} /><strong>Tu trabajo merece verse.</strong><p>Describe bien cada servicio para que las personas conozcan lo que ofreces.</p></div><div className="profile"><span className="avatar">{user?.initials || '—'}</span><span><strong>{user?.name || 'Cargando...'}</strong><small>{user?.role || 'Mi espacio'}</small></span></div></div>
+      <nav aria-label="Navegación principal"><button className={view === 'servicios' ? 'nav-link active' : 'nav-link'} onClick={() => setView('servicios')}><Icon name="grid" /> Mis servicios</button><button className={view === 'perfil' ? 'nav-link active' : 'nav-link'} onClick={() => setView('perfil')}><Icon name="user" /> Mi perfil</button><button className={view === 'solicitudes' ? 'nav-link active' : 'nav-link'} onClick={() => setView('solicitudes')}><Icon name="layers" /> Solicitudes recibidas</button></nav>
+      <div className="sidebar-bottom"><div className="sidebar-tip"><Icon name="sparkle" size={20} /><strong>Tu trabajo merece verse.</strong><p>Describe bien cada servicio para que las personas conozcan lo que ofreces.</p></div><div className="profile"><span className="avatar">{user?.initials || '—'}</span><span><strong>{user?.name || 'Cargando...'}</strong><small>{user?.role || 'Mi espacio'}</small></span></div><button className="logout-button" onClick={onLogout}>Cerrar sesión</button></div>
     </aside>
     <div className="workspace">
-      <header className="topbar"><div className="breadcrumb">{view === 'buscar' ? 'Explorar' : 'Mi espacio'} <span>/</span> <strong>{view === 'perfil' ? 'Mi perfil' : view === 'buscar' ? 'Buscar servicios' : 'Mis servicios'}</strong></div><div className="scope-pill"><span /> Servicios del hogar</div></header>
-      {view === 'buscar' ? <Search /> : view === 'perfil' ? <Profile onNotice={setNotice} onSaved={(p) => setUser((u) => ({ ...u, name: p.name, initials: p.name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() }))} /> : <main id="servicios">
+      <header className="topbar"><div className="breadcrumb">Mi espacio <span>/</span> <strong>{view === 'perfil' ? 'Mi perfil' : view === 'solicitudes' ? 'Solicitudes recibidas' : 'Mis servicios'}</strong></div><div className="scope-pill"><span /> Servicios del hogar</div><button className="mobile-logout" onClick={onLogout}>Cerrar sesión</button></header>
+      {view === 'solicitudes' ? <Requests role="Proveedor" /> : view === 'perfil' ? <Profile onNotice={setNotice} onSaved={(p) => setUser((u) => ({ ...u, name: p.name, initials: p.name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() }))} /> : <main id="servicios">
         <div className="page-title"><div><div className="eyebrow">GESTIONA TUS PUBLICACIONES</div><h1>Mis servicios<span>.</span></h1><p>Publica lo que haces y mantén tu oferta siempre al día.</p></div><button className="button primary" onClick={openCreate} disabled={loading || !!loadError}><Icon name="plus" /> Nuevo servicio</button></div>
         <section className="stats" aria-label="Resumen de publicaciones">
           <div className="stat"><span className="stat-icon mint"><Icon name="layers" size={22} /></span><span className="stat-label">Servicios publicados</span><strong>{String(services.length).padStart(2, '0')}</strong><small>Tu catálogo actual</small></div>
@@ -137,7 +139,7 @@ function App() {
           <div className="stat"><span className="stat-icon lilac"><Icon name="calendar" size={22} /></span><span className="stat-label">Última actualización</span><strong className="stat-date">{latest ? dateLabel(latest) : '—'}</strong><small>Actividad reciente</small></div>
         </section>
         <section className="catalog" aria-labelledby="catalog-title"><div className="section-heading"><div><div className="eyebrow">TU CATÁLOGO</div><h2 id="catalog-title">Servicios publicados <span>{services.length}</span></h2></div><p>Administra tus publicaciones en cualquier momento.</p></div>
-          <div className="category-filters" id="categorias" aria-label="Filtrar servicios por categoría"><button className={category === 'Todas' ? 'filter active' : 'filter'} onClick={() => setCategory('Todas')}>Todas <span>{services.length}</span></button>{activeCategories.map((item) => <button key={item.name} className={category === item.name ? 'filter active' : 'filter'} onClick={() => setCategory(item.name)}>{item.name} <span>{services.filter((service) => service.category === item.name).length}</span></button>)}</div>
+          <div className="category-filters" aria-label="Filtrar servicios por categoría"><button className={category === 'Todas' ? 'filter active' : 'filter'} onClick={() => setCategory('Todas')}>Todas <span>{services.length}</span></button>{activeCategories.map((item) => <button key={item.name} className={category === item.name ? 'filter active' : 'filter'} onClick={() => setCategory(item.name)}>{item.name} <span>{services.filter((service) => service.category === item.name).length}</span></button>)}</div>
           {loading ? <div className="empty" role="status"><span className="empty-icon"><Icon name="layers" size={30} /></span><h3>Cargando servicios...</h3></div> : loadError ? <div className="empty" role="alert"><span className="empty-icon"><Icon name="layers" size={30} /></span><h3>No se pudieron cargar los servicios</h3><p>{loadError}</p><button className="button secondary" onClick={() => window.location.reload()}>Volver a intentar</button></div> : visibleServices.length ? <div className="cards">{visibleServices.map((service) => { const item = categories.find((entry) => entry.name === service.category) || { icon: '▦', color: 'gray' }; return <article className="card" key={service.id}><div className="card-top"><span className={`category-icon ${item.color}`}>{item.icon}</span><span className="published"><span /> Publicado</span></div><small className="card-category">{service.category.toUpperCase()}</small><h3>{service.title}</h3><p className="card-description">{service.description}</p><button className="text-button" onClick={() => setDialog({ type: 'detail', id: service.id })}>Ver detalles <Icon name="arrow" size={15} /></button><div className="card-footer"><span>Actualizado {dateLabel(service.updatedAt)}</span><div><button aria-label={`Editar ${service.title}`} title="Editar servicio" onClick={() => editService(service)}><Icon name="edit" /></button><button aria-label={`Eliminar ${service.title}`} title="Eliminar servicio" className="delete-action" onClick={() => { setActionError(''); setDialog({ type: 'delete', id: service.id }) }}><Icon name="trash" /></button></div></div></article> })}</div> : <div className="empty"><span className="empty-icon"><Icon name="layers" size={30} /></span><h3>{services.length ? 'No hay servicios en esta categoría' : 'Tu catálogo está listo para comenzar'}</h3><p>{services.length ? 'Selecciona otra categoría para ver tus publicaciones.' : 'Crea tu primer servicio y empieza a mostrar lo que haces.'}</p>{!services.length && <button className="button primary" onClick={openCreate}><Icon name="plus" /> Publicar mi primer servicio</button>}</div>}
         </section><footer>Hogar+ · Tu espacio de servicios</footer>
       </main>}
@@ -149,6 +151,35 @@ function App() {
     </div>}
     {notice && <div className="toast" role="status"><Icon name="check" /> {notice}</div>}
   </div>
+}
+
+function App() {
+  const [session, setSession] = useState(undefined)
+  const [logoutError, setLogoutError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    getSession().then(({ user }) => { if (active) setSession(user) })
+      .catch(() => { if (active) setSession(null) })
+    return () => { active = false }
+  }, [])
+
+  async function signOut() {
+    try {
+      await logout()
+      setSession(null)
+      setLogoutError('')
+    } catch (error) {
+      setLogoutError(error.message)
+    }
+  }
+
+  if (session === undefined) return <div className="auth-loading" role="status">Cargando Hogar+...</div>
+  if (!session) return <Auth onLogin={setSession} />
+  return <>
+    {session.role === 'Proveedor' ? <ProviderApp key={session.id} initialUser={session} onLogout={signOut} /> : <ClientApp key={session.id} initialUser={session} onLogout={signOut} />}
+    {logoutError && <div className="toast error" role="alert">{logoutError}</div>}
+  </>
 }
 
 export default App

@@ -1,6 +1,11 @@
 # Hogar+
 
-Página para que un proveedor publique y administre sus servicios del hogar. Permite crear publicaciones con título, descripción y categoría, consultarlas, filtrarlas, editarlas y eliminarlas.
+Página de servicios del hogar con espacios separados para clientes y proveedores.
+
+- Los usuarios inician sesión con correo o nombre de usuario y contraseña.
+- El cliente puede editar sus datos, consultar el historial de solicitudes y buscar servicios.
+- El proveedor puede editar su perfil público y sus datos privados, consultar solicitudes recibidas y administrar sus publicaciones.
+- El servidor limita cada ruta al rol correspondiente. Los datos de contacto del cliente solo se muestran al proveedor cuando una solicitud está aceptada o en una etapa posterior.
 
 ## Ejecutar
 
@@ -18,6 +23,13 @@ npm run preview
 
 ## Datos
 
-El usuario, las categorías y las publicaciones iniciales están en [`data/db.json`](data/db.json). La página obtiene los datos de la API local; al crear, editar o eliminar una publicación, el servidor actualiza ese mismo archivo. Los cambios se conservan después de recargar la página y pueden revisarse directamente en el JSON.
+Los usuarios, perfiles, categorías, publicaciones y solicitudes de ejemplo están en [`data/db.json`](data/db.json). La API local lee ese archivo y guarda allí las ediciones. Las contraseñas se almacenan como hashes con sal; la sesión se mantiene en una cookie `HttpOnly` y se invalida al cerrar sesión.
 
-La aplicación utiliza por ahora un único usuario de demostración. No incluye inicio de sesión. Para recuperar los datos iniciales, restaura `data/db.json` desde Git.
+Para probar ambos roles, selecciona una cuenta en la pantalla de inicio de sesión o usa:
+
+| Rol | Correo | Contraseña |
+| --- | --- | --- |
+| Proveedor | `proveedor@hogar.test` | `Proveedor2026!` |
+| Cliente | `cliente@hogar.test` | `Cliente2026!` |
+
+Las solicitudes incluidas son datos de ejemplo para consultar el historial y comprobar la privacidad. El flujo para enviar, aceptar o cotizar solicitudes queda fuera de estas primeras tres áreas. No uses datos reales en este archivo de demostración. Para recuperar los datos iniciales, restaura `data/db.json` desde Git.
