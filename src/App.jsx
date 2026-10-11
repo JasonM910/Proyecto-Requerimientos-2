@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Auth from './Auth.jsx'
+import Brand from './Brand.jsx'
 import ClientApp from './ClientApp.jsx'
 import Profile from './Profile.jsx'
 import Requests from './Requests.jsx'
@@ -9,7 +10,6 @@ const blankForm = { title: '', category: '', description: '' }
 
 function Icon({ name, size = 18 }) {
   const shapes = {
-    home: <><path d="m3 10 9-7 9 7v10H3V10Z" /><path d="M9 20v-7h6v7" /></>,
     grid: <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>,
     layers: <><rect x="4" y="4" width="13" height="13" rx="2" /><path d="M8 20h11a2 2 0 0 0 2-2V7" /></>,
     calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18" /></>,
@@ -124,7 +124,7 @@ function ProviderApp({ initialUser, onLogout }) {
 
   return <div className="app">
     <aside className="sidebar">
-      <div className="brand"><span className="brand-icon"><Icon name="home" size={21} /></span><span><strong>hogar<span>+</span></strong><small>ESPACIO DEL PROVEEDOR</small></span></div>
+      <Brand subtitle="ESPACIO DEL PROVEEDOR" />
       <div className="nav-label">MENÚ PRINCIPAL</div>
       <nav aria-label="Navegación principal"><button className={view === 'servicios' ? 'nav-link active' : 'nav-link'} onClick={() => setView('servicios')}><Icon name="grid" /> Mis servicios</button><button className={view === 'perfil' ? 'nav-link active' : 'nav-link'} onClick={() => setView('perfil')}><Icon name="user" /> Mi perfil</button><button className={view === 'solicitudes' ? 'nav-link active' : 'nav-link'} onClick={() => setView('solicitudes')}><Icon name="layers" /> Solicitudes recibidas</button></nav>
       <div className="sidebar-bottom"><div className="sidebar-tip"><Icon name="sparkle" size={20} /><strong>Tu trabajo merece verse.</strong><p>Describe bien cada servicio para que las personas conozcan lo que ofreces.</p></div><div className="profile"><span className="avatar">{user?.initials || '—'}</span><span><strong>{user?.name || 'Cargando...'}</strong><small>{user?.role || 'Mi espacio'}</small></span></div><button className="logout-button" onClick={onLogout}>Cerrar sesión</button></div>

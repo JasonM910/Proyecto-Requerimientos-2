@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
+import Brand from './Brand.jsx'
 import ClientProfile from './ClientProfile.jsx'
 import Requests from './Requests.jsx'
 import Search from './Search.jsx'
 
 function Icon({ name }) {
   const paths = {
-    home: <><path d="m3 10 9-7 9 7v10H3V10Z" /><path d="M9 20v-7h6v7" /></>,
     search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
     list: <><path d="M8 6h13M8 12h13M8 18h13" /><path d="M3 6h.01M3 12h.01M3 18h.01" /></>,
     user: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
@@ -27,7 +27,7 @@ function ClientApp({ initialUser, onLogout }) {
 
   return <div className="app">
     <aside className="sidebar">
-      <div className="brand"><span className="brand-icon"><Icon name="home" /></span><span><strong>hogar<span>+</span></strong><small>ESPACIO DEL CLIENTE</small></span></div>
+      <Brand subtitle="ESPACIO DEL CLIENTE" />
       <div className="nav-label">MENÚ PRINCIPAL</div>
       <nav aria-label="Navegación del cliente">
         <button className={view === 'solicitudes' ? 'nav-link active' : 'nav-link'} onClick={() => setView('solicitudes')}><Icon name="list" /> Mis solicitudes</button>
