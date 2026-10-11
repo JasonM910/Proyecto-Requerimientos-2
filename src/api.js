@@ -29,10 +29,14 @@ export const getClientProfile = () => request('/api/client/profile')
 export const updateClientProfile = (profile) => request('/api/client/profile', { method: 'PUT', body: JSON.stringify(profile) })
 export const getClientRequests = () => request('/api/client/requests')
 export const getProviderRequests = () => request('/api/provider/requests')
-export function searchServices({ q = '', category = '', zone = '' } = {}) {
+export const createRequest = (data) => request('/api/client/requests', { method: 'POST', body: JSON.stringify(data) })
+export const updateClientRequest = (id, data) => request(`/api/client/requests/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) })
+export const updateProviderRequest = (id, data) => request(`/api/provider/requests/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) })
+export function searchServices({ q = '', category = '', group = '', zone = '' } = {}) {
   const params = new URLSearchParams()
   if (q) params.set('q', q)
   if (category) params.set('category', category)
+  if (group) params.set('group', group)
   if (zone) params.set('zone', zone)
   return request(`/api/search?${params}`)
 }

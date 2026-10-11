@@ -13,19 +13,28 @@
       "id": "proveedor-2",
       "name": "Laura Jiménez",
       "initials": "LJ",
-      "role": "Proveedor"
+      "role": "Proveedor",
+      "email": "laura@hogar.test",
+      "username": "laura.demo",
+      "passwordHash": "scrypt:ee7d003afa8c1a0035159ef349d82a25:17fb6b61ee94a7fa1c20358882b9a18277345dd7b5899445ad0a9842eef000b5eee0a36cf37bf485aca6d11476ad4949884f8f4efa15270cc9cf497d8c1934cf"
     },
     {
       "id": "proveedor-3",
       "name": "Andrés Solís",
       "initials": "AS",
-      "role": "Proveedor"
+      "role": "Proveedor",
+      "email": "andres@hogar.test",
+      "username": "andres.demo",
+      "passwordHash": "scrypt:d172d6fd396ec21e94373574b38c1dce:342d0c41a24e909563822f5ed4149f92c39604e961e696e73ec6defc1eb8c94fa7093c9fa7cbac4a21a4f732696a0cbd78f56a0514111f39a17dfca029a843a4"
     },
     {
       "id": "proveedor-4",
       "name": "Marta Rojas",
       "initials": "MR",
-      "role": "Proveedor"
+      "role": "Proveedor",
+      "email": "marta@hogar.test",
+      "username": "marta.demo",
+      "passwordHash": "scrypt:71f87ea43d2102f676fc42c5455ce9a2:c7ac26237e9381775f4af2274e3e3f44239c9baffde80dda33895dee1e00e8caef6ba9143a98f9c98f2c0df8fea029d2b7929553d84abdef09fd49d43f413ec0"
     },
     {
       "id": "cliente-demo",
@@ -40,36 +49,43 @@
   "categories": [
     {
       "name": "Plomería",
+      "group": "Reparaciones e instalaciones",
       "icon": "◈",
       "color": "blue"
     },
     {
       "name": "Electricidad",
+      "group": "Reparaciones e instalaciones",
       "icon": "ϟ",
       "color": "yellow"
     },
     {
       "name": "Limpieza",
+      "group": "Limpieza y exteriores",
       "icon": "✦",
       "color": "purple"
     },
     {
       "name": "Jardinería",
+      "group": "Limpieza y exteriores",
       "icon": "❀",
       "color": "green"
     },
     {
       "name": "Carpintería",
+      "group": "Reparaciones e instalaciones",
       "icon": "⌘",
       "color": "orange"
     },
     {
       "name": "Cuidado de personas",
+      "group": "Cuidado y asistencia",
       "icon": "♡",
       "color": "pink"
     },
     {
       "name": "Otros",
+      "group": "Otros servicios",
       "icon": "▦",
       "color": "gray"
     }

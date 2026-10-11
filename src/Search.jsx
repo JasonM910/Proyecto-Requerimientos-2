@@ -1,18 +1,22 @@
 ﻿import { useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, LockKeyhole, MapPin, Search as SearchIcon, X } from 'lucide-react'
+import { ArrowUpRight, LockKeyhole, MapPin, Send, Search as SearchIcon, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AnimatedItem, EmptyState, Page, PageFooter, PageHeader } from '@/components/page'
 import { categoryStyle } from '@/lib/category-styles'
-import { searchServices } from './api.js'
+import { groupCategories } from '@/lib/categories'
+import { createRequest, searchServices } from './api.js'
 
 const initialsOf = (name) => name.split(' ').filter(Boolean).slice(0, 2).map((word) => word[0]).join('').toUpperCase() || '—'
 const yearsLabel = (years) => `${years} ${years === 1 ? 'año' : 'años'} de experiencia`
 const allZones = '__all_zones__'
+const allGroups = '__all_groups__'
 
 function Zones({ zones, max }) {
   const shown = max ? zones.slice(0, max) : zones
@@ -25,31 +29,57 @@ function Zones({ zones, max }) {
   </div>
 }
 
-function Search() {
+function Search({ onRequestCreated }) {
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('Todas')
+  const [group, setGroup] = useState('')
   const [zone, setZone] = useState('')
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [detailId, setDetailId] = useState(null)
+  const [requestService, setRequestService] = useState(null)
+  const [requestForm, setRequestForm] = useState({ need: '', urgency: 'Flexible', location: '' })
+  const [requestError, setRequestError] = useState('')
+  const [requestBusy, setRequestBusy] = useState(false)
   const detailTrigger = useRef(null)
+  const queryKey = JSON.stringify([q.trim(), category, group, zone])
 
   useEffect(() => {
     let active = true
     const timer = setTimeout(() => {
-      searchServices({ q: q.trim(), category: category === 'Todas' ? '' : category, zone })
-        .then((result) => { if (active) { setData(result); setError('') } })
-        .catch((err) => { if (active) setError(err.message) })
+      searchServices({ q: q.trim(), category: category === 'Todas' ? '' : category, group, zone })
+        .then((result) => { if (active) { setData({ ...result, queryKey }); setError('') } })
+        .catch((err) => { if (active) setError({ queryKey, message: err.message }) })
     }, q ? 250 : 0)
     return () => { active = false; clearTimeout(timer) }
-  }, [q, category, zone])
+  }, [q, category, group, zone, queryKey])
 
   const categories = data?.categories ?? []
+  const groups = groupCategories(categories)
+  const visibleCategories = group ? groups.find((item) => item.name === group)?.categories ?? [] : categories
+  const loading = data?.queryKey !== queryKey
+  const currentError = error?.queryKey === queryKey ? error.message : ''
   const results = data?.results ?? []
-  const filtered = q.trim() !== '' || category !== 'Todas' || zone !== ''
+  const filtered = q.trim() !== '' || category !== 'Todas' || group !== '' || zone !== ''
   const detail = detailId ? results.find((item) => item.id === detailId) : null
   const styleOf = (name) => categories.find((item) => item.name === name) || { icon: '▦', color: 'gray' }
-  const clear = () => { setQ(''); setCategory('Todas'); setZone('') }
+  const clear = () => { setQ(''); setCategory('Todas'); setGroup(''); setZone('') }
+  const selectedGroup = group || categories.find((item) => item.name === category)?.group
+
+  async function sendRequest(event) {
+    event.preventDefault()
+    setRequestBusy(true)
+    setRequestError('')
+    try {
+      const result = await createRequest({ serviceId: requestService.id, ...requestForm })
+      setRequestService(null)
+      onRequestCreated?.(result.request)
+    } catch (problem) {
+      setRequestError(problem.message)
+    } finally {
+      setRequestBusy(false)
+    }
+  }
 
   return <Page>
     <PageHeader eyebrow="ENCUENTRA UN PROFESIONAL" title="Buscar servicios" description="Busca por palabra clave, categoría o zona de atención." />
@@ -71,16 +101,36 @@ function Search() {
         {filtered && <Button variant="ghost" className="h-11 rounded-xl" onClick={clear}><X className="size-4" aria-hidden="true" />Limpiar</Button>}
       </CardContent>
     </Card>
-    <div className="mb-7 flex flex-wrap gap-2" role="group" aria-label="Filtrar por categoría">
-      <Button variant={category === 'Todas' ? 'default' : 'outline'} size="sm" className="rounded-full px-4 shadow-none" aria-pressed={category === 'Todas'} onClick={() => setCategory('Todas')}>Todas</Button>
-      {categories.map((item) => <Button key={item.name} variant={category === item.name ? 'default' : 'outline'} size="sm" className="rounded-full px-4 shadow-none" aria-pressed={category === item.name} onClick={() => setCategory(item.name)}>{item.name}</Button>)}
-    </div>
-    {error ? <EmptyState error title="No se pudo realizar la búsqueda" description={error}>
+    <section className="mb-7 space-y-4" aria-label="Explorar categorías">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Select value={group || allGroups} onValueChange={(value) => { setGroup(value === allGroups ? '' : value); setCategory('Todas') }}>
+          <SelectTrigger className="w-full rounded-xl sm:w-72" aria-label="Filtrar por área de servicio">
+            <SelectValue placeholder="Todas las áreas" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={allGroups}>Todas las áreas</SelectItem>
+            {groups.map((item) => <SelectItem value={item.name} key={item.name}>{item.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">Explora un área y elige una categoría para precisar tu búsqueda.</p>
+      </div>
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por categoría">
+        <Button variant={category === 'Todas' ? 'default' : 'outline'} size="sm" className="rounded-full px-4 shadow-none" aria-pressed={category === 'Todas'} onClick={() => setCategory('Todas')}>Todas</Button>
+        {visibleCategories.map((item) => <Button key={item.name} variant={category === item.name ? 'default' : 'outline'} size="sm" className="rounded-full px-4 shadow-none" aria-pressed={category === item.name} onClick={() => setCategory(item.name)}>{item.name}</Button>)}
+      </div>
+      {selectedGroup && <nav aria-label="Ruta de categorías" className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <button className="underline underline-offset-4 hover:text-primary" onClick={() => { setGroup(''); setCategory('Todas') }}>Todas las áreas</button>
+        <span aria-hidden="true">/</span>
+        <button className="underline underline-offset-4 hover:text-primary" aria-current={category === 'Todas' ? 'location' : undefined} onClick={() => { setGroup(selectedGroup); setCategory('Todas') }}>{selectedGroup}</button>
+        {category !== 'Todas' && <><span aria-hidden="true">/</span><span aria-current="location" className="font-medium text-foreground">{category}</span></>}
+      </nav>}
+    </section>
+    {currentError ? <EmptyState error title="No se pudo realizar la búsqueda" description={currentError}>
       <Button variant="outline" onClick={() => window.location.reload()}>Volver a intentar</Button>
     </EmptyState>
-      : !data ? <EmptyState loading title="Cargando servicios..." />
+      : loading ? <EmptyState loading title="Cargando servicios..." />
         : <>
-          <p className="mb-4 text-sm text-muted-foreground" role="status">{data.total === 0 ? 'Sin resultados' : `${data.total} ${data.total === 1 ? 'servicio encontrado' : 'servicios encontrados'}`}</p>
+          <p className="mb-4 text-sm text-muted-foreground"><span role="status">{data.total === 0 ? 'Sin resultados' : `${data.total} ${data.total === 1 ? 'servicio encontrado' : 'servicios encontrados'}`}</span>{data.total > 0 && q.trim() && <span> · Ordenados por relevancia</span>}</p>
           {results.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {results.map((service) => {
               const style = styleOf(service.category)
@@ -137,7 +187,41 @@ function Search() {
           </section>
           <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground"><LockKeyhole className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />Los datos de contacto del proveedor no se muestran en la búsqueda.</p>
         </div>
-        <DialogFooter className="border-t border-border pt-4"><Button variant="outline" onClick={() => setDetailId(null)}>Cerrar</Button></DialogFooter>
+        <DialogFooter className="border-t border-border pt-4"><Button variant="outline" onClick={() => setDetailId(null)}>Cerrar</Button><Button onClick={() => { setRequestService(detail); setRequestForm({ need: '', urgency: 'Flexible', location: '' }); setRequestError(''); setDetailId(null) }}><Send className="size-4" aria-hidden="true" />Solicitar servicio</Button></DialogFooter>
+      </DialogContent>}
+    </Dialog>
+    <Dialog open={Boolean(requestService)} onOpenChange={(open) => { if (!open && !requestBusy) setRequestService(null) }}>
+      {requestService && <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-2xl sm:max-w-xl" showCloseButton={!requestBusy}>
+        <DialogHeader className="pr-6 text-left">
+          <p className="text-[10px] font-semibold tracking-[0.16em] text-primary">NUEVA SOLICITUD</p>
+          <DialogTitle className="font-heading text-2xl text-brand">Solicitar servicio</DialogTitle>
+          <DialogDescription>{requestService.title} · {requestService.provider.name}</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={sendRequest} className="space-y-5" aria-busy={requestBusy}>
+          <div className="space-y-2">
+            <Label htmlFor="request-need">¿Qué trabajo necesitas? <span className="text-destructive">*</span></Label>
+            <Textarea id="request-need" required minLength={10} maxLength={1000} rows={5} className="min-h-28 resize-y" placeholder="Describe el problema y lo que esperas del servicio." value={requestForm.need} onChange={(event) => setRequestForm({ ...requestForm, need: event.target.value })} disabled={requestBusy} />
+            <p className="text-xs text-muted-foreground">Evita compartir teléfono, correo o dirección exacta antes de aceptar una propuesta.</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="request-urgency">Urgencia <span className="text-destructive">*</span></Label>
+              <Select value={requestForm.urgency} onValueChange={(value) => setRequestForm({ ...requestForm, urgency: value })} disabled={requestBusy}>
+                <SelectTrigger id="request-urgency" className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="Flexible">Flexible</SelectItem><SelectItem value="Próximos días">Próximos días</SelectItem><SelectItem value="Urgente">Urgente</SelectItem></SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="request-location">Zona general <span className="text-destructive">*</span></Label>
+              <Input id="request-location" required minLength={3} maxLength={120} placeholder="Ej. Quesada" value={requestForm.location} onChange={(event) => setRequestForm({ ...requestForm, location: event.target.value })} disabled={requestBusy} />
+            </div>
+          </div>
+          {requestError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{requestError}</p>}
+          <DialogFooter className="border-t pt-4">
+            <Button type="button" variant="outline" onClick={() => setRequestService(null)} disabled={requestBusy}>Cancelar</Button>
+            <Button type="submit" disabled={requestBusy}><Send className="size-4" aria-hidden="true" />{requestBusy ? 'Enviando...' : 'Enviar solicitud'}</Button>
+          </DialogFooter>
+        </form>
       </DialogContent>}
     </Dialog>
     <PageFooter />

@@ -26,7 +26,7 @@ function ClientApp({ initialUser, onLogout }) {
 
   return (
     <AppShell user={user} view={view} onViewChange={setView} onLogout={onLogout}>
-      {view === 'solicitudes' ? <Requests role="Cliente" /> : view === 'buscar' ? <Search /> : <ClientProfile onNotice={setNotice} onSaved={updateUser} />}
+      {view === 'solicitudes' ? <Requests role="Cliente" /> : view === 'buscar' ? <Search onRequestCreated={() => { setNotice('Solicitud enviada al proveedor'); setView('solicitudes') }} /> : <ClientProfile onNotice={setNotice} onSaved={updateUser} />}
       <Notice message={notice} />
     </AppShell>
   )

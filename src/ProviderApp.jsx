@@ -10,12 +10,13 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { categoryStyle } from '@/lib/category-styles'
+import { groupCategories } from '@/lib/categories'
 import { cn } from '@/lib/utils'
-import { createService, getDashboard, removeService, updateService } from './api.js'
+import { createService, getDashboard, getProviderRequests, removeService, updateService } from './api.js'
 
 const blankForm = { title: '', category: '', description: '' }
 
@@ -50,6 +51,7 @@ function ProviderApp({ initialUser, onLogout }) {
   const [form, setForm] = useState(blankForm)
   const [notice, setNotice] = useState('')
   const [view, setView] = useState('servicios')
+  const [pendingCount, setPendingCount] = useState(0)
   const dialogTrigger = useRef(null)
   const createTrigger = useRef(null)
 
@@ -74,6 +76,20 @@ function ProviderApp({ initialUser, onLogout }) {
     const timer = setTimeout(() => setNotice(''), 3500)
     return () => clearTimeout(timer)
   }, [notice])
+
+  useEffect(() => {
+    let active = true
+    const refresh = () => {
+      if (document.visibilityState === 'hidden') return
+      getProviderRequests().then((data) => {
+        if (active) setPendingCount(data.requests.filter((item) => item.status === 'Pendiente').length)
+      }).catch(() => {})
+    }
+    refresh()
+    const timer = setInterval(refresh, 15_000)
+    document.addEventListener('visibilitychange', refresh)
+    return () => { active = false; clearInterval(timer); document.removeEventListener('visibilitychange', refresh) }
+  }, [])
 
   const activeCategories = categories.filter((item) => services.some((service) => service.category === item.name))
   const visibleServices = category === 'Todas' ? services : services.filter((service) => service.category === category)
@@ -115,6 +131,7 @@ function ProviderApp({ initialUser, onLogout }) {
       if (dialog.id) {
         const updated = await updateService(dialog.id, { title, description, category: form.category })
         setServices((current) => current.map((service) => service.id === updated.id ? updated : service))
+        if (category !== 'Todas') setCategory(updated.category)
         setNotice('Servicio actualizado correctamente')
       } else {
         const created = await createService({ title, description, category: form.category })
@@ -137,6 +154,7 @@ function ProviderApp({ initialUser, onLogout }) {
     try {
       await removeService(dialog.id)
       setServices((current) => current.filter((service) => service.id !== dialog.id))
+      if (!services.some((service) => service.id !== dialog.id && service.category === category)) setCategory('Todas')
       setNotice('Servicio eliminado')
       setDialog(null)
     } catch (error) {
@@ -146,8 +164,8 @@ function ProviderApp({ initialUser, onLogout }) {
     }
   }
 
-  return <AppShell user={user} view={view} onViewChange={setView} onLogout={onLogout}>
-    {view === 'solicitudes' ? <Requests role="Proveedor" /> : view === 'perfil' ? <Profile onNotice={setNotice} onSaved={(profile) => setUser((current) => ({ ...current, name: profile.name, initials: profile.name.split(' ').filter(Boolean).slice(0, 2).map((word) => word[0]).join('').toUpperCase() }))} /> : <Page id="servicios">
+  return <AppShell user={user} view={view} onViewChange={setView} onLogout={onLogout} alerts={pendingCount}>
+    {view === 'solicitudes' ? <Requests role="Proveedor" onUpdated={() => getProviderRequests().then((data) => setPendingCount(data.requests.filter((item) => item.status === 'Pendiente').length)).catch(() => {})} /> : view === 'perfil' ? <Profile onNotice={setNotice} onSaved={(profile) => setUser((current) => ({ ...current, name: profile.name, initials: profile.name.split(' ').filter(Boolean).slice(0, 2).map((word) => word[0]).join('').toUpperCase() }))} /> : <Page id="servicios">
       <PageHeader eyebrow="GESTIONA TUS PUBLICACIONES" title="Mis servicios" description="Publica lo que haces y mantén tu oferta siempre al día."
         action={<Button ref={createTrigger} size="lg" onClick={openCreate} disabled={loading || !!loadError} className="shadow-sm shadow-primary/20"><Plus aria-hidden="true" />Nuevo servicio</Button>} />
       <section className="mb-10 grid gap-4 sm:grid-cols-3" aria-label="Resumen de publicaciones">
@@ -212,7 +230,10 @@ function ProviderApp({ initialUser, onLogout }) {
               <Label htmlFor="category">Categoría <span className="text-destructive">*</span></Label>
               <Select required value={form.category} onValueChange={(value) => setForm({ ...form, category: value })} disabled={saving}>
                 <SelectTrigger id="category" className="w-full"><SelectValue placeholder="Selecciona una categoría" /></SelectTrigger>
-                <SelectContent>{categories.map((item) => <SelectItem key={item.name} value={item.name}>{item.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{groupCategories(categories).map((group) => <SelectGroup key={group.name}>
+                  <SelectLabel>{group.name}</SelectLabel>
+                  {group.categories.map((item) => <SelectItem key={item.name} value={item.name}>{item.name}</SelectItem>)}
+                </SelectGroup>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
@@ -248,7 +269,7 @@ function ProviderApp({ initialUser, onLogout }) {
         <AlertDialogHeader>
           <span className="mb-3 grid size-12 place-items-center rounded-xl bg-destructive/10 text-destructive"><Trash2 className="size-5" aria-hidden="true" /></span>
           <AlertDialogTitle className="font-heading text-xl font-bold text-brand">¿Eliminar este servicio?</AlertDialogTitle>
-          <AlertDialogDescription className="leading-relaxed wrap-anywhere">“{selected?.title}” dejará de aparecer en tu catálogo. Esta acción no se puede deshacer.</AlertDialogDescription>
+          <AlertDialogDescription className="leading-relaxed wrap-anywhere">“{selected?.title}” dejará de aparecer en tu catálogo y en las búsquedas. Las solicitudes anteriores conservarán su información. Esta acción no se puede deshacer.</AlertDialogDescription>
         </AlertDialogHeader>
         {actionError && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive" role="alert">{actionError}</p>}
         <AlertDialogFooter>

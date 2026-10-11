@@ -153,6 +153,51 @@ function validateClientProfile(payload) {
 
 const chronological = (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
 const contactAllowed = (status) => ['Aceptado', 'En proceso', 'Finalizado'].includes(status)
+const requestUrgencies = ['Flexible', 'Próximos días', 'Urgente']
+
+function requiredText(value, min, max, label) {
+  const text = cleanText(value, max, label)
+  if (text.length < min) throw new ApiError(400, `${label} debe tener al menos ${min} caracteres.`)
+  return text
+}
+
+function protectOpenMessage(text) {
+  if (/[\w.+-]+@[\w.-]+\.[a-z]{2,}|https?:\/\/|www\.|(?:\+?\d[\d\s-]{6,}\d)/i.test(text)) {
+    throw new ApiError(400, 'No incluyas teléfonos, correos ni enlaces antes de aceptar la solicitud.')
+  }
+  return text
+}
+
+function requestHistory(item) {
+  return Array.isArray(item.history) && item.history.length
+    ? item.history
+    : [{ status: item.status, at: item.createdAt, actor: 'Sistema', action: 'demo' }]
+}
+
+function requestView(item, database, role) {
+  const base = {
+    id: item.id, serviceId: item.serviceId, serviceTitle: item.serviceTitle,
+    providerName: item.providerName, createdAt: item.createdAt,
+    updatedAt: item.updatedAt || item.createdAt, status: item.status,
+    need: item.need, urgency: item.urgency || null, location: item.location || null,
+    estimate: item.estimate ?? null, history: requestHistory(item),
+  }
+  if (role === 'Cliente') return base
+  const client = findClientProfile(database, item.clientId)
+  return {
+    ...base, clientName: client.name,
+    clientContact: contactAllowed(item.status)
+      ? { phone: client.phone, email: client.email, address: client.address }
+      : null,
+  }
+}
+
+function appendRequestEvent(item, status, actor, action, note = '', amount = null) {
+  const at = new Date().toISOString()
+  item.history = [...requestHistory(item), { status, at, actor, action, ...(note ? { note } : {}), ...(amount !== null ? { amount } : {}) }]
+  item.status = status
+  item.updatedAt = at
+}
 
 function requireRole(user, role) {
   if (user.role !== role) throw new ApiError(403, 'No tienes acceso a este módulo.')
@@ -164,12 +209,17 @@ const fold = (value) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u
 function searchServices(database, params) {
   const terms = fold(params.get('q')).slice(0, 100).split(/\s+/).filter(Boolean).slice(0, 8)
   const category = params.get('category') || ''
+  const group = params.get('group') || ''
+  const groupCategories = new Set(database.categories
+    .filter((item) => (item.group || 'Otros servicios') === group)
+    .map((item) => item.name))
   const zone = fold(params.get('zone'))
   const zoneOptions = new Map()
   for (const profile of database.profiles ?? []) for (const item of profile.zones ?? []) zoneOptions.set(fold(item), zoneOptions.get(fold(item)) || item)
 
   const found = []
   for (const service of database.services) {
+    if (group && !groupCategories.has(service.category)) continue
     if (category && service.category !== category) continue
     const profile = findProfile(database, service.providerId)
     if (zone && !(profile.zones ?? []).some((item) => fold(item) === zone)) continue
@@ -310,29 +360,87 @@ export async function jsonApi(request, response, next) {
     if (pathname === '/api/client/requests' && request.method === 'GET') {
       requireRole(user, 'Cliente')
       const requests = database.requests.filter((item) => item.clientId === user.id)
-        .sort(chronological).map(({ id, serviceTitle, providerName, createdAt, status, need }) =>
-          ({ id, serviceTitle, providerName, createdAt, status, need }))
+        .sort(chronological).map((item) => requestView(item, database, 'Cliente'))
       return respond(response, 200, { requests })
+    }
+
+    if (pathname === '/api/client/requests' && request.method === 'POST') {
+      requireRole(user, 'Cliente')
+      const payload = await readBody(request)
+      const created = await mutateDatabase((currentDatabase) => {
+        const service = currentDatabase.services.find((item) => item.id === payload?.serviceId)
+        if (!service) throw new ApiError(404, 'El servicio ya no está disponible.')
+        if (!currentDatabase.users.some((item) => item.id === service.providerId && item.role === 'Proveedor')) {
+          throw new ApiError(404, 'El proveedor no está disponible.')
+        }
+        const need = protectOpenMessage(requiredText(payload.need, 10, 1000, 'La descripción del trabajo'))
+        const location = protectOpenMessage(requiredText(payload.location, 3, 120, 'La zona general'))
+        if (!requestUrgencies.includes(payload.urgency)) throw new ApiError(400, 'Selecciona una urgencia válida.')
+        const at = new Date().toISOString()
+        const item = {
+          id: randomUUID(), clientId: user.id, providerId: service.providerId,
+          serviceId: service.id, serviceTitle: service.title,
+          providerName: findProfile(currentDatabase, service.providerId).name,
+          need, urgency: payload.urgency, location, createdAt: at, updatedAt: at,
+          status: 'Pendiente', history: [{ status: 'Pendiente', at, actor: 'Cliente', action: 'created' }],
+        }
+        currentDatabase.requests.unshift(item)
+        return requestView(item, currentDatabase, 'Cliente')
+      })
+      return respond(response, 201, { request: created })
     }
 
     if (pathname === '/api/provider/requests' && request.method === 'GET') {
       requireRole(user, 'Proveedor')
       const requests = database.requests.filter((item) => item.providerId === user.id)
-        .sort(chronological).map((item) => {
-          const client = findClientProfile(database, item.clientId)
-          return {
-            id: item.id,
-            serviceTitle: item.serviceTitle,
-            createdAt: item.createdAt,
-            status: item.status,
-            need: item.need,
-            clientName: client.name,
-            clientContact: contactAllowed(item.status)
-              ? { phone: client.phone, email: client.email, address: client.address }
-              : null,
-          }
-        })
+        .sort(chronological).map((item) => requestView(item, database, 'Proveedor'))
       return respond(response, 200, { requests })
+    }
+
+    const clientRequestMatch = pathname.match(/^\/api\/client\/requests\/([a-zA-Z0-9-]+)$/)
+    if (clientRequestMatch && request.method === 'PATCH') {
+      requireRole(user, 'Cliente')
+      const payload = await readBody(request)
+      const updated = await mutateDatabase((currentDatabase) => {
+        const item = currentDatabase.requests.find((entry) => entry.id === clientRequestMatch[1] && entry.clientId === user.id)
+        if (!item) throw new ApiError(404, 'Solicitud no encontrada.')
+        if (payload?.action === 'reply' && item.status === 'Aclaración solicitada') {
+          const note = protectOpenMessage(requiredText(payload.message, 5, 600, 'La respuesta'))
+          appendRequestEvent(item, 'Pendiente', 'Cliente', 'reply', note)
+        } else if (payload?.action === 'accept' && ['Cotizado', 'Propuesta recibida'].includes(item.status)) {
+          appendRequestEvent(item, 'Aceptado', 'Cliente', 'accept')
+        } else throw new ApiError(409, 'Esta acción no corresponde al estado actual de la solicitud.')
+        return requestView(item, currentDatabase, 'Cliente')
+      })
+      return respond(response, 200, { request: updated })
+    }
+
+    const providerRequestMatch = pathname.match(/^\/api\/provider\/requests\/([a-zA-Z0-9-]+)$/)
+    if (providerRequestMatch && request.method === 'PATCH') {
+      requireRole(user, 'Proveedor')
+      const payload = await readBody(request)
+      const updated = await mutateDatabase((currentDatabase) => {
+        const item = currentDatabase.requests.find((entry) => entry.id === providerRequestMatch[1] && entry.providerId === user.id)
+        if (!item) throw new ApiError(404, 'Solicitud no encontrada.')
+        const action = payload?.action
+        if (['clarify', 'offer', 'quote'].includes(action) && item.status === 'Pendiente') {
+          const note = protectOpenMessage(requiredText(payload.message, 5, 600, 'La respuesta'))
+          if (action === 'quote') {
+            const amount = payload.amount
+            if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0 || amount > 100000000 || Math.abs(Math.round(amount * 100) - amount * 100) > 1e-7) {
+              throw new ApiError(400, 'Escribe un monto estimado válido, con hasta dos decimales.')
+            }
+            item.estimate = amount
+            appendRequestEvent(item, 'Cotizado', 'Proveedor', action, note, amount)
+          } else appendRequestEvent(item, action === 'clarify' ? 'Aclaración solicitada' : 'Propuesta recibida', 'Proveedor', action, note)
+        } else if (action === 'start' && item.status === 'Aceptado') {
+          appendRequestEvent(item, 'En proceso', 'Proveedor', action)
+        } else if (action === 'finish' && item.status === 'En proceso') {
+          appendRequestEvent(item, 'Finalizado', 'Proveedor', action)
+        } else throw new ApiError(409, 'Esta acción no corresponde al estado actual de la solicitud.')
+        return requestView(item, currentDatabase, 'Proveedor')
+      })
+      return respond(response, 200, { request: updated })
     }
 
     if (pathname === '/api/services' && request.method === 'POST') {

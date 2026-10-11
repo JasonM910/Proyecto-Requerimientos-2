@@ -10,6 +10,9 @@ import { Label } from '@/components/ui/label'
 
 const demos = [
   { label: 'Proveedor', identifier: 'proveedor@hogar.test', password: 'Proveedor2026!', icon: BriefcaseBusiness },
+  { label: 'Laura Jiménez', identifier: 'laura@hogar.test', password: 'Proveedor2026!', icon: BriefcaseBusiness },
+  { label: 'Andrés Solís', identifier: 'andres@hogar.test', password: 'Proveedor2026!', icon: BriefcaseBusiness },
+  { label: 'Marta Rojas', identifier: 'marta@hogar.test', password: 'Proveedor2026!', icon: BriefcaseBusiness },
   { label: 'Cliente', identifier: 'cliente@hogar.test', password: 'Cliente2026!', icon: UserRound },
 ]
 
