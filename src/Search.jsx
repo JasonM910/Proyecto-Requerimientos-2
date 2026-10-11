@@ -1,26 +1,27 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
+import { ArrowUpRight, LockKeyhole, MapPin, Search as SearchIcon, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { AnimatedItem, EmptyState, Page, PageFooter, PageHeader } from '@/components/page'
+import { categoryStyle } from '@/lib/category-styles'
 import { searchServices } from './api.js'
 
-function Icon({ name, size = 16 }) {
-  const shapes = {
-    search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
-    pin: <><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21Z" /><circle cx="12" cy="9.5" r="2.5" /></>,
-    close: <path d="M5 5l14 14M19 5 5 19" />,
-    arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
-    lock: <><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></>,
-  }
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{shapes[name]}</svg>
-}
-
-const initialsOf = (name) => name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '—'
-const yearsLabel = (n) => `${n} ${n === 1 ? 'año' : 'años'} de experiencia`
+const initialsOf = (name) => name.split(' ').filter(Boolean).slice(0, 2).map((word) => word[0]).join('').toUpperCase() || '—'
+const yearsLabel = (years) => `${years} ${years === 1 ? 'año' : 'años'} de experiencia`
+const allZones = '__all_zones__'
 
 function Zones({ zones, max }) {
   const shown = max ? zones.slice(0, max) : zones
   const extra = zones.length - shown.length
-  return <div className="chips" style={{ marginTop: 0 }}>
-    {shown.map((zone) => <span className="chip static" key={zone}><Icon name="pin" size={11} />{zone}</span>)}
-    {extra > 0 && <span className="chip static">+{extra}</span>}
+  return <div className="flex flex-wrap gap-1.5">
+    {shown.map((zone) => <Badge variant="secondary" className="gap-1 rounded-md px-2 py-1 text-[11px] font-medium" key={zone}>
+      <MapPin className="size-3" aria-hidden="true" />{zone}
+    </Badge>)}
+    {extra > 0 && <Badge variant="secondary" className="rounded-md px-2 py-1 text-[11px] font-medium">+{extra}</Badge>}
   </div>
 }
 
@@ -31,6 +32,7 @@ function Search() {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [detailId, setDetailId] = useState(null)
+  const detailTrigger = useRef(null)
 
   useEffect(() => {
     let active = true
@@ -42,13 +44,6 @@ function Search() {
     return () => { active = false; clearTimeout(timer) }
   }, [q, category, zone])
 
-  useEffect(() => {
-    if (!detailId) return undefined
-    function onKeyDown(event) { if (event.key === 'Escape') setDetailId(null) }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [detailId])
-
   const categories = data?.categories ?? []
   const results = data?.results ?? []
   const filtered = q.trim() !== '' || category !== 'Todas' || zone !== ''
@@ -56,57 +51,97 @@ function Search() {
   const styleOf = (name) => categories.find((item) => item.name === name) || { icon: '▦', color: 'gray' }
   const clear = () => { setQ(''); setCategory('Todas'); setZone('') }
 
-  return <main>
-    <div className="page-title"><div><div className="eyebrow">ENCUENTRA UN PROFESIONAL</div><h1>Buscar servicios<span>.</span></h1><p>Busca por palabra clave, categoría o zona de atención.</p></div></div>
-
-    <div className="search-bar" role="search">
-      <label className="search-input"><Icon name="search" size={18} /><input type="search" aria-label="Buscar servicios" placeholder="Ej. fuga, closet, jardín..." maxLength={100} value={q} onChange={(event) => setQ(event.target.value)} /></label>
-      <label className="search-zone"><Icon name="pin" size={16} /><select aria-label="Filtrar por zona de atención" value={zone} onChange={(event) => setZone(event.target.value)}><option value="">Todas las zonas</option>{(data?.zones ?? []).map((item) => <option key={item}>{item}</option>)}</select></label>
-      {filtered && <button className="button secondary" onClick={clear}><Icon name="close" size={15} /> Limpiar</button>}
-    </div>
-
-    <div className="category-filters" aria-label="Filtrar por categoría">
-      <button className={category === 'Todas' ? 'filter active' : 'filter'} onClick={() => setCategory('Todas')}>Todas</button>
-      {categories.map((item) => <button key={item.name} className={category === item.name ? 'filter active' : 'filter'} onClick={() => setCategory(item.name)}>{item.name}</button>)}
-    </div>
-
-    {error ? <div className="empty" role="alert"><h3>No se pudo realizar la búsqueda</h3><p>{error}</p><button className="button secondary" onClick={() => window.location.reload()}>Volver a intentar</button></div>
-      : !data ? <div className="empty" role="status"><h3>Cargando servicios...</h3></div>
-      : <>
-        <p className="results-count" role="status">{data.total === 0 ? 'Sin resultados' : `${data.total} ${data.total === 1 ? 'servicio encontrado' : 'servicios encontrados'}`}</p>
-        {results.length ? <div className="results">
-          {results.map((service) => { const style = styleOf(service.category); return <article className="result-card" key={service.id}>
-            <div className="result-top"><span className={`category-icon ${style.color}`}>{style.icon}</span><small className="card-category">{service.category.toUpperCase()}</small></div>
-            <h3>{service.title}</h3>
-            <p className="result-description">{service.description}</p>
-            <div className="result-provider"><span className="avatar">{initialsOf(service.provider.name)}</span><span><strong>{service.provider.name}</strong><small>{service.provider.headline || 'Proveedor de servicios'}</small></span></div>
-            <Zones zones={service.provider.zones} max={3} />
-            <button className="text-button" onClick={() => setDetailId(service.id)}>Ver detalles <Icon name="arrow" size={15} /></button>
-          </article> })}
-        </div> : <div className="empty"><h3>No encontramos servicios con esos filtros</h3><p>Prueba con otras palabras, otra categoría o todas las zonas.</p>{filtered && <button className="button secondary" onClick={clear}>Limpiar filtros</button>}</div>}
-      </>}
-
-    {detail && <div className="backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetailId(null) }}>
-      <div className="dialog detail-dialog" role="dialog" aria-modal="true" aria-labelledby="result-title">
-        <div className="dialog-heading"><div><div className="eyebrow">DETALLE DEL SERVICIO</div><h2 id="result-title">{detail.title}</h2></div><button className="close" aria-label="Cerrar" onClick={() => setDetailId(null)}><Icon name="close" size={21} /></button></div>
-        <div className="detail-content">
-          <span className={`detail-category ${styleOf(detail.category).color}`}>{styleOf(detail.category).icon} {detail.category}</span>
-          <h3>Descripción</h3>
-          <p>{detail.description}</p>
-          <div className="public-block">
-            <div className="public-head"><span className="avatar">{initialsOf(detail.provider.name)}</span><div><h3>{detail.provider.name}</h3><p>{detail.provider.headline || 'Proveedor de servicios'}{detail.provider.experienceYears != null && ` · ${yearsLabel(detail.provider.experienceYears)}`}</p></div></div>
-            {detail.provider.about && <p>{detail.provider.about}</p>}
-            {detail.provider.experience && <div><h4>Experiencia</h4><p>{detail.provider.experience}</p></div>}
-            <h4 style={{ marginTop: 14 }}>Zonas de atención</h4>
-            <Zones zones={detail.provider.zones} />
-          </div>
-          <div className="public-note"><Icon name="lock" size={14} /><span>Los datos de contacto del proveedor no se muestran en la búsqueda.</span></div>
+  return <Page>
+    <PageHeader eyebrow="ENCUENTRA UN PROFESIONAL" title="Buscar servicios" description="Busca por palabra clave, categoría o zona de atención." />
+    <Card className="mb-5 gap-0 rounded-2xl py-4 shadow-none">
+      <CardContent className="flex flex-col gap-3 px-4 sm:flex-row sm:items-center" role="search" aria-label="Buscar y filtrar servicios">
+        <div className="relative min-w-0 flex-1">
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input type="search" aria-label="Buscar servicios" placeholder="Ej. fuga, closet, jardín..." className="h-11 rounded-xl bg-background pl-10" maxLength={100} value={q} onChange={(event) => setQ(event.target.value)} />
         </div>
-        <div className="dialog-actions"><button className="button secondary" onClick={() => setDetailId(null)}>Cerrar</button></div>
-      </div>
-    </div>}
-    <footer>Hogar+ · Tu espacio de servicios</footer>
-  </main>
+        <Select value={zone || allZones} onValueChange={(value) => setZone(value === allZones ? '' : value)}>
+          <SelectTrigger className="h-11! w-full rounded-xl bg-background sm:w-56" aria-label="Filtrar por zona de atención">
+            <span className="flex min-w-0 items-center gap-2"><MapPin className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><SelectValue placeholder="Todas las zonas" /></span>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={allZones}>Todas las zonas</SelectItem>
+            {(data?.zones ?? []).map((item) => <SelectItem value={item} key={item}>{item}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {filtered && <Button variant="ghost" className="h-11 rounded-xl" onClick={clear}><X className="size-4" aria-hidden="true" />Limpiar</Button>}
+      </CardContent>
+    </Card>
+    <div className="mb-7 flex flex-wrap gap-2" role="group" aria-label="Filtrar por categoría">
+      <Button variant={category === 'Todas' ? 'default' : 'outline'} size="sm" className="rounded-full px-4 shadow-none" aria-pressed={category === 'Todas'} onClick={() => setCategory('Todas')}>Todas</Button>
+      {categories.map((item) => <Button key={item.name} variant={category === item.name ? 'default' : 'outline'} size="sm" className="rounded-full px-4 shadow-none" aria-pressed={category === item.name} onClick={() => setCategory(item.name)}>{item.name}</Button>)}
+    </div>
+    {error ? <EmptyState error title="No se pudo realizar la búsqueda" description={error}>
+      <Button variant="outline" onClick={() => window.location.reload()}>Volver a intentar</Button>
+    </EmptyState>
+      : !data ? <EmptyState loading title="Cargando servicios..." />
+        : <>
+          <p className="mb-4 text-sm text-muted-foreground" role="status">{data.total === 0 ? 'Sin resultados' : `${data.total} ${data.total === 1 ? 'servicio encontrado' : 'servicios encontrados'}`}</p>
+          {results.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {results.map((service) => {
+              const style = styleOf(service.category)
+              return <AnimatedItem className="min-w-0" key={service.id}>
+                <Card className="h-full gap-0 rounded-2xl py-0 shadow-none transition-[border-color,box-shadow] hover:border-primary/25 hover:shadow-md motion-reduce:transition-none">
+                  <CardContent className="flex h-full flex-col p-5">
+                    <div className="mb-5 flex items-center gap-3">
+                      <span className={`flex size-11 shrink-0 items-center justify-center rounded-xl text-xl ${categoryStyle(style.color)}`} aria-hidden="true">{style.icon}</span>
+                      <span className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">{service.category}</span>
+                    </div>
+                    <h2 className="mb-2 font-heading text-lg leading-snug font-bold tracking-tight text-brand">{service.title}</h2>
+                    <p className="mb-5 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{service.description}</p>
+                    <div className="mt-auto border-t border-border/70 pt-4">
+                      <div className="mb-3 flex items-center gap-2.5">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-primary" aria-hidden="true">{initialsOf(service.provider.name)}</span>
+                        <div className="min-w-0"><p className="truncate text-sm font-semibold">{service.provider.name}</p><p className="truncate text-xs text-muted-foreground">{service.provider.headline || 'Proveedor de servicios'}</p></div>
+                      </div>
+                      <Zones zones={service.provider.zones} max={3} />
+                      <Button variant="ghost" className="mt-4 w-full justify-between rounded-lg px-2 text-primary hover:bg-accent hover:text-primary" aria-haspopup="dialog" onClick={(event) => { detailTrigger.current = event.currentTarget; setDetailId(service.id) }}>
+                        Ver detalles <ArrowUpRight className="size-4" aria-hidden="true" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </AnimatedItem>
+            })}
+          </div> : <EmptyState title="No encontramos servicios con esos filtros" description="Prueba con otras palabras, otra categoría o todas las zonas.">
+            {filtered && <Button variant="outline" onClick={clear}>Limpiar filtros</Button>}
+          </EmptyState>}
+        </>}
+    <Dialog open={Boolean(detail)} onOpenChange={(open) => { if (!open) setDetailId(null) }}>
+      {detail && <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-2xl sm:max-w-2xl" onCloseAutoFocus={(event) => { event.preventDefault(); detailTrigger.current?.focus() }}>
+        <DialogHeader className="pr-6 text-left">
+          <p className="mb-1 text-[10px] font-semibold tracking-[0.16em] text-primary">DETALLE DEL SERVICIO</p>
+          <DialogTitle className="font-heading text-2xl leading-snug font-bold text-brand">{detail.title}</DialogTitle>
+          <DialogDescription>Información del servicio y perfil público del profesional.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-6 py-2">
+          <Badge variant="secondary" className={`gap-2 rounded-lg px-3 py-1.5 ${categoryStyle(styleOf(detail.category).color)}`}>
+            <span aria-hidden="true">{styleOf(detail.category).icon}</span>{detail.category}
+          </Badge>
+          <section className="space-y-2">
+            <h3 className="font-heading text-sm font-bold">Descripción</h3>
+            <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{detail.description}</p>
+          </section>
+          <section className="space-y-4 rounded-xl border border-border bg-background p-4 sm:p-5" aria-label="Perfil público del proveedor">
+            <div className="flex items-center gap-3">
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-primary" aria-hidden="true">{initialsOf(detail.provider.name)}</span>
+              <div><h3 className="font-heading font-bold text-brand">{detail.provider.name}</h3><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{detail.provider.headline || 'Proveedor de servicios'}{detail.provider.experienceYears != null && ` · ${yearsLabel(detail.provider.experienceYears)}`}</p></div>
+            </div>
+            {detail.provider.about && <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{detail.provider.about}</p>}
+            {detail.provider.experience && <div className="space-y-2"><h4 className="text-sm font-semibold">Experiencia</h4><p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{detail.provider.experience}</p></div>}
+            <div className="space-y-2.5"><h4 className="text-sm font-semibold">Zonas de atención</h4><Zones zones={detail.provider.zones} /></div>
+          </section>
+          <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground"><LockKeyhole className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />Los datos de contacto del proveedor no se muestran en la búsqueda.</p>
+        </div>
+        <DialogFooter className="border-t border-border pt-4"><Button variant="outline" onClick={() => setDetailId(null)}>Cerrar</Button></DialogFooter>
+      </DialogContent>}
+    </Dialog>
+    <PageFooter />
+  </Page>
 }
 
 export default Search
