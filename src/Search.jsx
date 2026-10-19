@@ -1,5 +1,5 @@
 ﻿import { useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, Flag, LockKeyhole, MapPin, Send, Search as SearchIcon, X } from 'lucide-react'
+import { ArrowUpRight, Flag, LockKeyhole, MapPin, Send, Search as SearchIcon, Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -14,6 +14,7 @@ import { groupCategories } from '@/lib/categories'
 import { ReportDialog } from '@/components/ReportDialog'
 import { VerifiedBadge } from '@/components/Trust'
 import { ImageGallery, ImagePicker } from '@/components/ImagePicker'
+import GuidedAssistant from '@/components/GuidedAssistant'
 import { createRequest, searchServices } from './api.js'
 
 const initialsOf = (name) => name.split(' ').filter(Boolean).slice(0, 2).map((word) => word[0]).join('').toUpperCase() || '—'
@@ -42,6 +43,8 @@ function Search({ onRequestCreated, onNotice }) {
   const [detailId, setDetailId] = useState(null)
   const [requestService, setRequestService] = useState(null)
   const [reportProvider, setReportProvider] = useState(null)
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const [assistedDraft, setAssistedDraft] = useState(null)
   const [requestForm, setRequestForm] = useState({ need: '', urgency: 'Flexible', location: '', directions: '', images: [] })
   const [requestError, setRequestError] = useState('')
   const [requestBusy, setRequestBusy] = useState(false)
@@ -67,7 +70,7 @@ function Search({ onRequestCreated, onNotice }) {
   const filtered = q.trim() !== '' || category !== 'Todas' || group !== '' || zone !== ''
   const detail = detailId ? results.find((item) => item.id === detailId) : null
   const styleOf = (name) => categories.find((item) => item.name === name) || { icon: '▦', color: 'gray' }
-  const clear = () => { setQ(''); setCategory('Todas'); setGroup(''); setZone('') }
+  const clear = () => { setQ(''); setCategory('Todas'); setGroup(''); setZone(''); setAssistedDraft(null) }
   const selectedGroup = group || categories.find((item) => item.name === category)?.group
 
   async function sendRequest(event) {
@@ -77,6 +80,7 @@ function Search({ onRequestCreated, onNotice }) {
     try {
       const result = await createRequest({ serviceId: requestService.id, ...requestForm })
       setRequestService(null)
+      setAssistedDraft(null)
       onRequestCreated?.(result.request)
     } catch (problem) {
       setRequestError(problem.message)
@@ -86,12 +90,13 @@ function Search({ onRequestCreated, onNotice }) {
   }
 
   return <Page>
-    <PageHeader eyebrow="ENCUENTRA UN PROFESIONAL" title="Buscar servicios" description="Busca por palabra clave, categoría o zona de atención." />
+    <PageHeader eyebrow="ENCUENTRA UN PROFESIONAL" title="Buscar servicios" description="Busca por palabra clave, categoría o zona de atención." action={<Button variant="outline" onClick={() => setAssistantOpen(true)} disabled={loading || Boolean(currentError)}><Sparkles className="size-4 text-primary" aria-hidden="true" />Ayúdame a elegir</Button>} />
+    {assistedDraft && <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/15 bg-accent/40 px-4 py-2.5 text-xs" role="status"><span><strong className="text-primary">Sugerencia: {assistedDraft.category}.</strong> La descripción quedará lista al solicitar un servicio.</span><Button variant="ghost" size="sm" onClick={() => setAssistedDraft(null)}>Descartar sugerencia</Button></div>}
     <Card className="mb-5 gap-0 rounded-2xl py-4 shadow-none">
       <CardContent className="flex flex-col gap-3 px-4 sm:flex-row sm:items-center" role="search" aria-label="Buscar y filtrar servicios">
         <div className="relative min-w-0 flex-1">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input type="search" aria-label="Buscar servicios" placeholder="Ej. fuga, closet, jardín..." className="h-11 rounded-xl bg-background pl-10" maxLength={100} value={q} onChange={(event) => setQ(event.target.value)} />
+          <Input type="search" aria-label="Buscar servicios" placeholder="Ej. fuga, closet, jardín..." className="h-11 rounded-xl bg-background pl-10" maxLength={100} value={q} onChange={(event) => { setQ(event.target.value); setAssistedDraft(null) }} />
         </div>
         <Select value={zone || allZones} onValueChange={(value) => setZone(value === allZones ? '' : value)}>
           <SelectTrigger className="h-11! w-full rounded-xl bg-background sm:w-56" aria-label="Filtrar por zona de atención">
@@ -107,7 +112,7 @@ function Search({ onRequestCreated, onNotice }) {
     </Card>
     <section className="mb-7 space-y-4" aria-label="Explorar categorías">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Select value={group || allGroups} onValueChange={(value) => { setGroup(value === allGroups ? '' : value); setCategory('Todas') }}>
+        <Select value={group || allGroups} onValueChange={(value) => { setGroup(value === allGroups ? '' : value); setCategory('Todas'); setAssistedDraft(null) }}>
           <SelectTrigger className="w-full rounded-xl sm:w-72" aria-label="Filtrar por área de servicio">
             <SelectValue placeholder="Todas las áreas" />
           </SelectTrigger>
@@ -119,13 +124,13 @@ function Search({ onRequestCreated, onNotice }) {
         <p className="text-xs text-muted-foreground">Explora un área y elige una categoría para precisar tu búsqueda.</p>
       </div>
       <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por categoría">
-        <Button variant={category === 'Todas' ? 'default' : 'outline'} size="sm" className="rounded-full px-4 shadow-none" aria-pressed={category === 'Todas'} onClick={() => setCategory('Todas')}>Todas</Button>
-        {visibleCategories.map((item) => <Button key={item.name} variant={category === item.name ? 'default' : 'outline'} size="sm" className="rounded-full px-4 shadow-none" aria-pressed={category === item.name} onClick={() => setCategory(item.name)}>{item.name}</Button>)}
+        <Button variant={category === 'Todas' ? 'default' : 'outline'} size="sm" className="rounded-full px-4 shadow-none" aria-pressed={category === 'Todas'} onClick={() => { setCategory('Todas'); setAssistedDraft(null) }}>Todas</Button>
+        {visibleCategories.map((item) => <Button key={item.name} variant={category === item.name ? 'default' : 'outline'} size="sm" className="rounded-full px-4 shadow-none" aria-pressed={category === item.name} onClick={() => { setCategory(item.name); setAssistedDraft(null) }}>{item.name}</Button>)}
       </div>
       {selectedGroup && <nav aria-label="Ruta de categorías" className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <button className="underline underline-offset-4 hover:text-primary" onClick={() => { setGroup(''); setCategory('Todas') }}>Todas las áreas</button>
+        <button className="underline underline-offset-4 hover:text-primary" onClick={() => { setGroup(''); setCategory('Todas'); setAssistedDraft(null) }}>Todas las áreas</button>
         <span aria-hidden="true">/</span>
-        <button className="underline underline-offset-4 hover:text-primary" aria-current={category === 'Todas' ? 'location' : undefined} onClick={() => { setGroup(selectedGroup); setCategory('Todas') }}>{selectedGroup}</button>
+        <button className="underline underline-offset-4 hover:text-primary" aria-current={category === 'Todas' ? 'location' : undefined} onClick={() => { setGroup(selectedGroup); setCategory('Todas'); setAssistedDraft(null) }}>{selectedGroup}</button>
         {category !== 'Todas' && <><span aria-hidden="true">/</span><span aria-current="location" className="font-medium text-foreground">{category}</span></>}
       </nav>}
     </section>
@@ -193,7 +198,7 @@ function Search({ onRequestCreated, onNotice }) {
           </section>
           <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground"><LockKeyhole className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />Los datos de contacto del proveedor no se muestran en la búsqueda.</p>
         </div>
-        <DialogFooter className="border-t border-border pt-4"><Button variant="ghost" className="text-muted-foreground sm:mr-auto" onClick={() => { setReportProvider(detail); setDetailId(null) }}><Flag className="size-4" aria-hidden="true" />Reportar proveedor</Button><Button variant="outline" onClick={() => setDetailId(null)}>Cerrar</Button><Button onClick={() => { setRequestService(detail); setRequestForm({ need: '', urgency: 'Flexible', location: detail.provider.zones[0] || '', directions: '', images: [] }); setRequestError(''); setDetailId(null) }}><Send className="size-4" aria-hidden="true" />Solicitar servicio</Button></DialogFooter>
+        <DialogFooter className="border-t border-border pt-4"><Button variant="ghost" className="text-muted-foreground sm:mr-auto" onClick={() => { setReportProvider(detail); setDetailId(null) }}><Flag className="size-4" aria-hidden="true" />Reportar proveedor</Button><Button variant="outline" onClick={() => setDetailId(null)}>Cerrar</Button><Button onClick={() => { setRequestService(detail); setRequestForm({ need: assistedDraft?.description || '', urgency: assistedDraft?.urgency || 'Flexible', location: detail.provider.zones[0] || '', directions: '', images: [] }); setRequestError(''); setDetailId(null) }}><Send className="size-4" aria-hidden="true" />Solicitar servicio</Button></DialogFooter>
       </DialogContent>}
     </Dialog>
     <Dialog open={Boolean(requestService)} onOpenChange={(open) => { if (!open && !requestBusy) setRequestService(null) }}>
@@ -240,6 +245,7 @@ function Search({ onRequestCreated, onNotice }) {
       </DialogContent>}
     </Dialog>
     <ReportDialog open={Boolean(reportProvider)} onOpenChange={(open) => { if (!open) setReportProvider(null) }} target={reportProvider ? { providerId: reportProvider.provider.id } : undefined} targetLabel={reportProvider?.provider.name} onCreated={() => onNotice?.('Reporte enviado. Gracias por avisarnos')} />
+    <GuidedAssistant open={assistantOpen} onOpenChange={setAssistantOpen} categories={categories} onApply={(suggestion) => { setQ(''); setGroup(''); setZone(''); setCategory(suggestion.category); setAssistedDraft(suggestion) }} />
     <PageFooter />
   </Page>
 }

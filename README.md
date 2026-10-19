@@ -87,6 +87,10 @@ Clientes y proveedores pueden enviar reportes generales o asociados a una solici
 
 El proveedor puede adjuntar hasta tres fotos JPG o PNG al crear o editar un servicio. Se muestran en su catálogo y en la búsqueda y detalle del cliente. El cliente puede adjuntar hasta tres fotos a una solicitud; ambas partes las ven en el seguimiento. Cada archivo puede pesar hasta 3 MB. Las imágenes se guardan como datos Base64 en `data/db.json`, por lo que esta solución está pensada para la demo y el archivo crecerá con cada foto. Las fotos de la solicitud son visibles para el proveedor desde que la recibe; el formulario recuerda evitar datos personales en ellas. `tests/rf-24.spec.js` comprueba carga, visualización, persistencia y validación de formatos.
 
+### Asistente guiado (RF-25)
+
+En «Buscar servicios», el cliente puede abrir «Ayúdame a elegir». El asistente pregunta por el área del hogar, el tipo de ayuda, el problema y la urgencia. Con esas respuestas sugiere una categoría disponible y prepara una descripción editable. Al aceptar la sugerencia, filtra el catálogo y completa la descripción y la urgencia del formulario de solicitud; el cliente puede revisarlas antes de enviarla. Las recomendaciones siguen reglas locales y no requieren un servicio externo de inteligencia artificial. `tests/rf-25.spec.js` comprueba el recorrido, la persistencia de la solicitud y el uso en móvil.
+
 ## Datos
 
 Los usuarios, perfiles, categorías, publicaciones y solicitudes de ejemplo están en [`data/db.json`](data/db.json). La API local lee ese archivo y guarda allí las ediciones. Las contraseñas se almacenan como hashes con sal; la sesión se mantiene en una cookie `HttpOnly` y se invalida al cerrar sesión.
