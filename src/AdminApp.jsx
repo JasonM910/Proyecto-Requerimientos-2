@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { EmptyState, Notice, Page, PageFooter, PageHeader } from '@/components/page'
 import { FieldError, ValidatedForm } from '@/components/InlineValidation'
+import { ImageGallery } from '@/components/ImagePicker'
 import { getAdminReports, getAdminVerifications, reviewReport, reviewVerification } from './api.js'
 
 const date = new Intl.DateTimeFormat('es-CR', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -17,6 +18,7 @@ function AdminApp({ initialUser, onLogout }) {
   const [reports, setReports] = useState(null)
   const [verifications, setVerifications] = useState(null)
   const [notes, setNotes] = useState({})
+  const [reviewedEvidence, setReviewedEvidence] = useState({})
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -62,9 +64,10 @@ function AdminApp({ initialUser, onLogout }) {
     setBusy(profile.providerId)
     setError('')
     try {
-      const { verification } = await reviewVerification(profile.providerId, { action, note: notes[profile.providerId]?.trim() || '' })
+      const { verification } = await reviewVerification(profile.providerId, { action, note: notes[profile.providerId]?.trim() || '', reviewedEvidence: reviewedEvidence[profile.providerId] === true })
       setVerifications((current) => current.map((item) => item.providerId === profile.providerId ? { ...item, ...verification } : item))
       setNote(profile.providerId, '')
+      setReviewedEvidence((current) => ({ ...current, [profile.providerId]: false }))
       setNotice(action === 'approve' ? 'Proveedor verificado' : 'Verificación rechazada')
     } catch (problem) { setError(problem.message) } finally { setBusy('') }
   }
@@ -96,12 +99,14 @@ function AdminApp({ initialUser, onLogout }) {
             <CardContent className="space-y-4 p-5 sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="flex items-center gap-2 font-heading text-lg font-bold text-brand"><BadgeCheck className="size-4" aria-hidden="true" />{profile.name}</h2><Badge variant="secondary">{profile.status}</Badge></div>
               <dl className="grid gap-2 text-xs sm:grid-cols-2"><div><dt className="font-semibold">Identificación</dt><dd>{profile.legalId || 'Sin registrar'}</dd></div><div><dt className="font-semibold">Referencia del documento</dt><dd className="break-words">{profile.documentReference || 'Sin registrar'}</dd></div><div><dt className="font-semibold">Contacto</dt><dd>{profile.email || 'Sin correo'} · {profile.phone || 'Sin teléfono'}</dd></div><div><dt className="font-semibold">Zonas</dt><dd>{profile.zones.join(', ') || 'Sin zonas'}</dd></div></dl>
+              {profile.verificationEvidence?.length > 0 && <div className="max-w-sm space-y-2"><p className="text-xs font-semibold">Documento de identidad adjunto · solo para el equipo</p><ImageGallery images={profile.verificationEvidence} label={`Documento de identidad de ${profile.name}`} altPrefix="Documento de identidad" /></div>}
               <p className="text-xs text-muted-foreground">Experiencia: {profile.experience || 'Sin descripción'}</p>
               {profile.note && <p className="text-xs text-muted-foreground">Observación: {profile.note}</p>}
               {profile.status === 'En revisión' && <div className="space-y-3 border-t pt-4">
+                <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed"><input type="checkbox" checked={reviewedEvidence[profile.providerId] === true} onChange={(event) => setReviewedEvidence((current) => ({ ...current, [profile.providerId]: event.target.checked }))} disabled={busy === profile.providerId || !profile.verificationEvidence?.length} className="mt-0.5 size-4 shrink-0 accent-primary" />Revisé la foto del documento y comparé sus datos con el perfil.</label>
                 <Label htmlFor={`verification-note-${profile.providerId}`}>Observación de la revisión</Label>
                 <Textarea id={`verification-note-${profile.providerId}`} maxLength={200} rows={2} value={notes[profile.providerId] || ''} onChange={(event) => setNote(profile.providerId, event.target.value)} disabled={busy === profile.providerId} placeholder="Obligatoria si rechazas la solicitud." />
-                <div className="flex flex-wrap gap-2"><Button size="sm" disabled={busy === profile.providerId || !profile.checks.every((check) => check.met)} onClick={() => actVerification(profile, 'approve')}>Aprobar verificación</Button><Button size="sm" variant="outline" disabled={busy === profile.providerId || (notes[profile.providerId]?.trim().length || 0) < 5} onClick={() => actVerification(profile, 'reject')}>Rechazar</Button></div>
+                <div className="flex flex-wrap gap-2"><Button size="sm" disabled={busy === profile.providerId || !profile.checks.every((check) => check.met) || reviewedEvidence[profile.providerId] !== true} onClick={() => actVerification(profile, 'approve')}>Aprobar verificación</Button><Button size="sm" variant="outline" disabled={busy === profile.providerId || (notes[profile.providerId]?.trim().length || 0) < 5} onClick={() => actVerification(profile, 'reject')}>Rechazar</Button></div>
               </div>}
             </CardContent>
           </Card>)}

@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname } from 'node:path'
 import { expect, test as base } from '@playwright/test'
+import sharp from 'sharp'
 
 const test = base.extend({
   databaseSnapshot: [async ({ baseURL }, runTest) => {
@@ -67,21 +68,58 @@ test('RF-21: solo el equipo revisa la verificación y la insignia refleja su dec
     expect(pending.status).toBe('En revisión')
     expect(pending.legalId).toBeTruthy()
     expect(pending.documentReference).toBeTruthy()
-    expect((await admin.patch('/api/admin/verifications/proveedor-3', { data: { action: 'approve' } })).status()).toBe(200)
+    expect(pending.verificationEvidence).toHaveLength(1)
+    expect((await admin.patch('/api/admin/verifications/proveedor-3', { data: { action: 'approve' } })).status()).toBe(400)
+    expect((await admin.patch('/api/admin/verifications/proveedor-3', { data: { action: 'approve', reviewedEvidence: true } })).status()).toBe(200)
     const search = await (await client.get('/api/search')).json()
     expect(search.results.some((item) => item.provider.id === 'proveedor-3' && item.provider.verified)).toBe(true)
     expect(JSON.stringify(search)).not.toContain(pending.legalId)
+    expect(JSON.stringify(search)).not.toContain(pending.verificationEvidence[0].dataUrl)
 
     const profile = await (await provider.get('/api/profile')).json()
-    expect((await provider.put('/api/profile', { data: { ...profile, legalId: 'DEMO-NEW-778899' } })).status()).toBe(200)
+    expect((await provider.put('/api/profile', { data: { ...profile, legalId: 'DEMO-NEW-778899', verificationEvidence: [] } })).status()).toBe(200)
     const reset = await (await provider.get('/api/provider/verification')).json()
     expect(reset.status).toBe('Sin verificar')
+    expect(reset.checks.find((check) => check.key === 'document').met).toBe(false)
+    expect((await provider.patch('/api/provider/verification', { data: { action: 'request' } })).status()).toBe(400)
+    const image = await sharp({ create: { width: 320, height: 200, channels: 3, background: '#edf3ec' } }).png().toBuffer()
+    const dataUrl = `data:image/png;base64,${image.toString('base64')}`
+    const updated = await provider.put('/api/profile', { data: { ...profile, legalId: 'DEMO-NEW-778899', verificationEvidence: [{ name: 'cedula-privada.png', dataUrl }] } })
+    expect(updated.status()).toBe(200)
+    expect((await updated.json()).verificationEvidence[0].name).toBe('Documento de identidad.png')
     expect((await provider.patch('/api/provider/verification', { data: { action: 'request' } })).status()).toBe(200)
+    const reopened = (await (await admin.get('/api/admin/verifications')).json()).verifications.find((item) => item.providerId === 'proveedor-3')
+    expect(reopened.verificationEvidence[0].dataUrl).toMatch(/^data:image\/png;base64,/)
+    expect(JSON.stringify(await (await client.get('/api/profile/public?providerId=proveedor-3')).json())).not.toContain(reopened.verificationEvidence[0].dataUrl)
     expect((await admin.patch('/api/admin/verifications/proveedor-3', { data: { action: 'reject', note: 'Documento pendiente de aclaración.' } })).status()).toBe(200)
     expect((await (await provider.get('/api/provider/verification')).json()).status).toBe('Rechazado')
     const after = await (await client.get('/api/search')).json()
     expect(after.results.some((item) => item.provider.id === 'proveedor-3' && item.provider.verified)).toBe(false)
   } finally { await provider.dispose(); await admin.dispose(); await client.dispose() }
+})
+
+test('RF-21: el proveedor adjunta un documento privado y solicita una nueva revisión', async ({ page, playwright, baseURL }) => {
+  const client = await account(playwright, baseURL, 'cliente.demo', 'Cliente2026!')
+  try {
+    const image = await sharp({ create: { width: 600, height: 360, channels: 3, background: '#edf3ec' } }).png().toBuffer()
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Proveedor', exact: true }).click()
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click()
+    await page.getByRole('button', { name: 'Mi perfil', exact: true }).click()
+    await page.getByLabel('Imágenes seleccionadas: Foto del documento de identidad').getByRole('button', { name: 'Quitar imagen 1' }).click()
+    await page.locator('#pf-verification-evidence').setInputFiles({ name: 'identidad-privada.png', mimeType: 'image/png', buffer: image })
+    await expect(page.getByRole('img', { name: /identidad-privada.png/ })).toBeVisible()
+    await expect(page.getByLabel('Vista pública del perfil')).not.toContainText('identidad-privada.png')
+    await page.getByRole('button', { name: 'Guardar perfil', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Guardar perfil', exact: true })).toBeDisabled()
+    await page.getByRole('button', { name: 'Seguridad y confianza', exact: true }).click()
+    await expect(page.getByText('Sin verificar', { exact: true }).first()).toBeVisible()
+    await page.getByRole('button', { name: 'Solicitar verificación', exact: true }).click()
+    await expect(page.getByText('En revisión', { exact: true }).first()).toBeVisible()
+    const publicProfile = await (await client.get('/api/profile/public?providerId=proveedor-demo')).json()
+    expect(publicProfile).not.toHaveProperty('verificationEvidence')
+    expect(JSON.stringify(publicProfile)).not.toContain('identidad-privada.png')
+  } finally { await client.dispose() }
 })
 
 test('RF-22: los reportes llegan al equipo y sus decisiones aparecen al autor', async ({ playwright, baseURL }) => {
@@ -126,6 +164,9 @@ test('RF-21 y RF-22: la cuenta del equipo tiene bandeja de reportes y verificaci
   await page.getByRole('navigation', { name: 'Navegación del equipo' }).getByRole('button', { name: 'Verificar proveedores' }).click()
   await expect(page.getByRole('heading', { name: 'Verificar proveedores', level: 1 })).toBeVisible()
   const pendingProfile = page.locator('[data-slot="card"][aria-label="Verificación: Andrés Solís"]')
+  await expect(pendingProfile.getByRole('img', { name: /Documento de identidad/ })).toBeVisible()
+  await expect(pendingProfile.getByRole('button', { name: 'Aprobar verificación' })).toBeDisabled()
+  await pendingProfile.getByRole('checkbox', { name: /Revisé la foto/ }).check()
   await pendingProfile.getByRole('button', { name: 'Aprobar verificación' }).click()
   await expect(pendingProfile).toContainText('Verificado')
 })

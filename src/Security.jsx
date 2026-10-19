@@ -68,14 +68,14 @@ function VerificationPanel({ onNotice }) {
           <span className={check.met ? '' : 'text-muted-foreground'}>{check.label}</span><span className="sr-only">{check.met ? 'Cumplido' : 'Pendiente'}</span>
         </li>)}
       </ul>
-      {!data.canRequest && ['Sin verificar', 'Rechazado'].includes(data.status) && <p className="text-xs leading-relaxed text-muted-foreground">Completa estos datos en «Mi perfil» para poder solicitar la verificación.</p>}
+      {!data.canRequest && ['Sin verificar', 'Rechazado'].includes(data.status) && <p className="text-xs leading-relaxed text-muted-foreground">Completa estos datos y guarda una foto del documento en «Mi perfil» para poder solicitar la verificación.</p>}
       {data.note && <p className="rounded-lg bg-secondary/70 p-3 text-xs leading-relaxed text-muted-foreground"><strong className="text-foreground">Observación:</strong> {data.note}</p>}
       {data.requestedAt && <p className="text-xs text-muted-foreground">Solicitada el {dateFormatter.format(new Date(data.requestedAt))}{data.reviewedAt && ` · Revisada el ${dateFormatter.format(new Date(data.reviewedAt))}`}</p>}
       {error && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
       {['Sin verificar', 'Rechazado'].includes(data.status) && <Button disabled={busy || !data.canRequest} onClick={() => act('request', 'Verificación solicitada')}><ShieldCheck className="size-4" aria-hidden="true" />{data.status === 'Rechazado' ? 'Solicitar nueva verificación' : 'Solicitar verificación'}</Button>}
       {data.status === 'En revisión' && <div className="space-y-3 rounded-xl border border-dashed border-primary/30 bg-accent/40 p-4">
         <p className="flex items-center gap-2 text-sm font-semibold">Revisión del equipo de Hogar+</p>
-        <p className="text-xs leading-relaxed text-muted-foreground">Tu solicitud está pendiente. El equipo revisará los datos de identidad y te comunicará el resultado aquí.</p>
+        <p className="text-xs leading-relaxed text-muted-foreground">Tu solicitud está pendiente. El equipo revisará la foto y los datos de identidad y te comunicará el resultado aquí.</p>
       </div>}
     </CardContent>
   </Card>
@@ -129,12 +129,12 @@ function PrivacyPanel({ role }) {
   const groups = provider
     ? [
       { icon: ShieldCheck, title: 'Visible para los clientes', items: ['Nombre y especialidad', 'Descripción y experiencia', 'Zonas de atención', 'Insignia de verificación'] },
-      { icon: EyeOff, title: 'Datos privados', items: ['Dirección y cuenta bancaria: solo tú', 'Identificación legal y referencia de documentos: tú y el equipo de revisión', 'Correo y teléfono: se comparten con un cliente cuando acepta tu propuesta'] },
-      { icon: LockKeyhole, title: 'Datos del cliente', items: ['Su contacto se muestra solo cuando acepta tu propuesta', 'Los mensajes previos no pueden incluir teléfonos, correos ni enlaces'] },
+      { icon: EyeOff, title: 'Datos privados', items: ['Dirección y cuenta bancaria: solo tú', 'Identificación legal, referencia y foto del documento: tú y el equipo de revisión', 'Correo y teléfono: se comparten con un cliente cuando acepta tu propuesta'] },
+      { icon: LockKeyhole, title: 'Datos del cliente', items: ['Su contacto y las fotos adjuntas se muestran solo cuando acepta tu propuesta', 'Los mensajes previos no pueden incluir teléfonos, correos ni enlaces'] },
     ]
     : [
       { icon: ShieldCheck, title: 'Visible para el proveedor desde el inicio', items: ['Tu nombre', 'Descripción del trabajo, urgencia y zona general'] },
-      { icon: LockKeyhole, title: 'Visible solo tras aceptar una propuesta', items: ['Teléfono, correo, dirección e indicaciones privadas'] },
+      { icon: LockKeyhole, title: 'Visible solo tras aceptar una propuesta', items: ['Teléfono, correo, dirección, indicaciones privadas y fotos adjuntas'] },
       { icon: EyeOff, title: 'Acceso restringido', items: ['Tu contraseña no se muestra', 'Tus reportes solo los ven tú y el equipo de revisión'] },
     ]
   return <Card className="rounded-2xl py-0 shadow-sm" aria-labelledby="privacy-title">

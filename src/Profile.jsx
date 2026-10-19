@@ -16,7 +16,7 @@ const PRIVATE_FIELDS = [
   { key: 'phone', label: 'Teléfono', type: 'tel', placeholder: '8888 0000', autoComplete: 'tel' },
   { key: 'address', label: 'Dirección', type: 'text', placeholder: 'Barrio, distrito o referencia', autoComplete: 'street-address' },
   { key: 'legalId', label: 'Identificación legal', type: 'text', placeholder: 'Número de identificación', maxLength: 60 },
-  { key: 'verificationDocuments', label: 'Documento de verificación', type: 'text', placeholder: 'Referencia interna del documento', maxLength: 200 },
+  { key: 'verificationDocuments', label: 'Referencia del documento de identidad', type: 'text', placeholder: 'Ej. número o descripción del documento', maxLength: 200 },
   { key: 'bankAccount', label: 'Cuenta bancaria', type: 'text', placeholder: 'Cuenta para pagos', maxLength: 120 },
 ]
 const MAX_ZONES = 10
@@ -30,6 +30,7 @@ const toForm = (profile) => ({
   experience: profile.experience || '',
   zones: profile.zones || [],
   images: profile.images || [],
+  verificationEvidence: profile.verificationEvidence || [],
   email: profile.email || '',
   phone: profile.phone || '',
   address: profile.address || '',
@@ -92,7 +93,7 @@ function PublicCard({ data }) {
 
         <div className="flex items-start gap-2.5 rounded-xl border border-primary/10 bg-secondary p-3.5 text-xs leading-relaxed text-secondary-foreground">
           <LockKeyhole className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-          <p>Tus datos de contacto, identificación y cuenta bancaria no aparecen en esta vista.</p>
+          <p>Tus datos de contacto, documento de identidad y cuenta bancaria no aparecen en esta vista.</p>
         </div>
       </CardContent>
     </Card>
@@ -153,7 +154,7 @@ function Profile({ onNotice, onSaved }) {
       const updated = await updateProfile({
         name: form.name.trim(), headline: form.headline.trim(), about: form.about.trim(), experience: form.experience.trim(),
         experienceYears: years === '' ? null : Number(years), zones: zonesForSave,
-        images: form.images,
+        images: form.images, verificationEvidence: form.verificationEvidence,
         email: form.email.trim(), phone: form.phone.trim(), address: form.address.trim(),
         legalId: form.legalId.trim(), verificationDocuments: form.verificationDocuments.trim(), bankAccount: form.bankAccount.trim(),
       })
@@ -248,7 +249,7 @@ function Profile({ onNotice, onSaved }) {
                   <CardTitle className="font-heading text-lg">Datos privados</CardTitle>
                   <Badge className="gap-1.5 rounded-full border-0 bg-apricot text-apricot-foreground"><LockKeyhole className="size-3" aria-hidden="true" />Solo tú</Badge>
                 </div>
-                <CardDescription>No se muestran en tu perfil público ni en el catálogo de búsqueda.</CardDescription>
+                <CardDescription>No se muestran en tu perfil público ni en el catálogo de búsqueda. Para solicitar la insignia, registra tu identificación y adjunta una foto del documento.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-5 sm:grid-cols-2">
                 {PRIVATE_FIELDS.map((field) => (
@@ -258,6 +259,9 @@ function Profile({ onNotice, onSaved }) {
                     {submitted && errors[field.key] && <p id={`pf-${field.key}-error`} role="alert" className="text-xs font-medium text-destructive">{errors[field.key]}</p>}
                   </div>
                 ))}
+                <div className="sm:col-span-2">
+                  <ImagePicker id="pf-verification-evidence" label="Foto del documento de identidad" labelSuffix="(para solicitar verificación)" images={form.verificationEvidence} onChange={(verificationEvidence) => setForm((current) => ({ ...current, verificationEvidence }))} disabled={saving} maxCount={1} hint="Una imagen JPG o PNG de hasta 3 MB. Solo tú y el equipo de revisión podrán verla. Guarda el perfil antes de solicitar la verificación." />
+                </div>
               </CardContent>
             </Card>
           </AnimatedItem>

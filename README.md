@@ -70,7 +70,7 @@ La prueba de capturas guarda imágenes de los recorridos principales en `test-re
 
 El cliente abre un servicio y envía la descripción del trabajo, la urgencia y una zona general elegida de las zonas del proveedor. Puede agregar indicaciones privadas para llegar. La solicitud aparece en el panel del proveedor, con un contador de solicitudes pendientes que se actualiza mientras la página está abierta. El proveedor puede pedir una aclaración, aceptar preliminarmente o enviar una cotización en colones. El cliente responde las aclaraciones y acepta una propuesta. Después el proveedor marca el trabajo como en proceso y finalizado. Ambas partes ven una cronología con fechas y mensajes.
 
-La aceptación del cliente habilita sus datos de contacto y sus indicaciones privadas para ese proveedor; antes de ello la API no los incluye en su respuesta. Los mensajes previos a la aceptación rechazan correos, teléfonos y enlaces. La notificación al proveedor ocurre dentro de la aplicación; se actualiza cada 15 segundos o al volver a la pestaña. No se envían correos ni avisos externos.
+La aceptación del cliente habilita sus datos de contacto, sus indicaciones privadas y las fotos adjuntas para ese proveedor; antes de ello la API no los incluye en su respuesta. Los mensajes previos a la aceptación rechazan correos, teléfonos y enlaces. La notificación al proveedor ocurre dentro de la aplicación; se actualiza cada 15 segundos o al volver a la pestaña. No se envían correos ni avisos externos.
 
 `tests/scopes-6.spec.js` recorre el flujo completo entre cliente y proveedor y verifica validaciones, permisos, privacidad, transiciones y persistencia. Las solicitudes iniciales permanecen como ejemplos de historial.
 
@@ -80,13 +80,13 @@ El proveedor desglosa mano de obra, materiales y otros conceptos; el cliente pue
 
 ### Seguridad y confianza (alcance 8)
 
-El proveedor solicita la verificación desde «Seguridad y confianza» cuando ha completado los datos requeridos. La cuenta «Equipo Hogar+» revisa la identificación y la referencia del documento, y aprueba o rechaza la solicitud. La insignia pública aparece solo mientras el perfil está verificado; un cambio en los datos de identidad la retira hasta una nueva revisión. La referencia del documento es texto de demostración; este flujo no permite subir archivos.
+El proveedor guarda una foto JPG o PNG de su documento de identidad en los datos privados de «Mi perfil» y solicita la verificación desde «Seguridad y confianza» cuando ha completado los datos requeridos. La cuenta «Equipo Hogar+» puede ampliar esa foto, comparar los datos y confirmar su revisión antes de aprobar o rechazar la solicitud. La foto y la identificación no aparecen en la API pública ni en el catálogo; allí solo se muestra la insignia después de la aprobación. Un cambio en los datos o la foto de identidad retira la insignia hasta una nueva revisión. Las fotos iniciales de los proveedores son documentos ficticios marcados como demostración; la revisión es manual y no certifica la identidad real de una persona.
 
 Clientes y proveedores pueden enviar reportes generales o asociados a una solicitud; los clientes también pueden reportar un perfil. El equipo recibe los casos en su bandeja, registra su revisión y los resuelve. El autor ve el historial del caso en «Seguridad y confianza». `tests/scopes-8.spec.js` comprueba el acceso por rol, las decisiones y la privacidad del contacto y de las indicaciones de llegada.
 
 ### Imágenes de muestra y evidencias (RF-24)
 
-El proveedor puede adjuntar hasta tres fotos JPG o PNG al crear o editar un servicio y una foto pública a su perfil. El cliente puede adjuntar hasta tres fotos a una solicitud; ambas partes las ven en el seguimiento. Al tocar una miniatura en los detalles, en una solicitud o antes de guardar, se abre una vista ampliada; si hay varias fotos, se pueden recorrer con los botones o las flechas del teclado. Cada archivo de entrada puede pesar hasta 3 MB. El servidor comprueba el contenido, reduce las dimensiones, comprime la imagen y elimina sus metadatos antes de guardarla como Base64 en `data/db.json`. Esta solución está pensada para la demo y el archivo crecerá con cada foto. Las fotos de la solicitud son visibles para el proveedor desde que la recibe; el formulario recuerda evitar datos personales visibles en ellas. `tests/rf-24.spec.js` y `tests/nonfunctional.spec.js` comprueban la carga, visualización, persistencia, compresión y validación de formatos.
+El proveedor puede adjuntar hasta tres fotos JPG o PNG al crear o editar un servicio y una foto pública a su perfil. El cliente puede adjuntar hasta tres fotos a una solicitud; el proveedor las ve cuando el cliente acepta su propuesta. Antes, solo ve cuántas fotos están pendientes. Al tocar una miniatura en los detalles, en una solicitud o antes de guardar, se abre una vista ampliada; si hay varias fotos, se pueden recorrer con los botones o las flechas del teclado. Cada archivo de entrada puede pesar hasta 3 MB. El servidor comprueba el contenido, reduce las dimensiones, comprime las imágenes, elimina sus metadatos y sustituye los nombres originales de los archivos de solicitud antes de guardarlas como Base64 en `data/db.json`. Esta solución está pensada para la demo y el archivo crecerá con cada foto. El formulario recuerda evitar datos personales visibles en ellas. `tests/rf-24.spec.js` y `tests/nonfunctional.spec.js` comprueban la carga, visualización, persistencia, compresión y validación de formatos.
 
 ### Asistente guiado (RF-25)
 
@@ -96,9 +96,9 @@ En «Buscar servicios», el cliente puede abrir «Ayúdame a elegir». El asiste
 
 | Requisito | Implementación y comprobación |
 | --- | --- |
-| RNF-01 | Los seis usuarios de demostración tienen hash scrypt con sal aleatoria y parámetros `N=32768, r=8, p=3`; no se guarda la contraseña en claro. |
+| RNF-01 | Los seis usuarios de demostración tienen hash scrypt con sal aleatoria y parámetros `N=32768, r=8, p=3` en la base JSON. Sus contraseñas de prueba aparecen en la pantalla de acceso y en este README para facilitar la demo; esto no satisface la prohibición estricta de contraseñas en claro. |
 | RNF-02 | La sesión en cookie `HttpOnly` expira tras 30 minutos sin interacción. Las consultas automáticas no renuevan su vencimiento; la interfaz cierra la sesión y muestra un aviso. |
-| RNF-03 | Las respuestas públicas excluyen contacto, dirección exacta, identificación y cuenta bancaria. La API exige rol y oculta las indicaciones privadas al proveedor hasta aceptar el trabajo. |
+| RNF-03 | Las respuestas públicas excluyen contacto, dirección exacta, identificación y cuenta bancaria. La API exige rol y oculta las indicaciones privadas y fotos de solicitudes al proveedor hasta aceptar el trabajo. Los nombres originales de esas fotos se sustituyen al guardarlas. |
 | RNF-04 | Los perfiles públicos se resuelven desde un índice en memoria; la prueba hace 100 consultas simultáneas y comprueba el límite local de 1,5 segundos. |
 | RNF-05 | Eliminar una publicación marca `status: inactive` y `deletedAt`; desaparece del catálogo, pero se conserva en JSON junto con las solicitudes históricas. |
 | RNF-06 | La búsqueda usa un índice de trigramas sobre título, descripción y datos públicos del proveedor. La prueba verifica 100 búsquedas simultáneas dentro de 2 segundos en el servidor local. |

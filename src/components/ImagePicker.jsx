@@ -65,7 +65,7 @@ export function ImageGallery({ images = [], label = 'Imágenes adjuntas', altPre
   </>
 }
 
-export function ImagePicker({ id, images, onChange, disabled = false, label = 'Imágenes de muestra', hint, maxCount = maxImages }) {
+export function ImagePicker({ id, images, onChange, disabled = false, label = 'Imágenes de muestra', labelSuffix = '(opcional)', hint, maxCount = maxImages }) {
   const inputRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -99,7 +99,7 @@ export function ImagePicker({ id, images, onChange, disabled = false, label = 'I
   }
 
   return <div className="space-y-3">
-    <Label htmlFor={id} className="flex items-center gap-2"><ImagePlus className="size-4 text-primary" aria-hidden="true" />{label} (opcional)</Label>
+    <Label htmlFor={id} className="flex items-center gap-2"><ImagePlus className="size-4 text-primary" aria-hidden="true" />{label} {labelSuffix}</Label>
     <Input ref={inputRef} id={id} type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" multiple={maxCount > 1} onChange={selectImages} disabled={disabled || busy || images.length >= maxCount} className="h-auto cursor-pointer py-2 file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary" />
     <p className="text-xs text-muted-foreground">{hint || `Hasta ${maxCount} ${maxCount === 1 ? 'imagen' : 'imágenes'} JPG o PNG de 3 MB cada una.`}</p>
     {error && <p role="alert" className="text-xs text-destructive">{error}</p>}

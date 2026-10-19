@@ -138,7 +138,7 @@ function initialsOf(name) {
   return name.split(' ').filter(Boolean).slice(0, 2).map((word) => word[0]).join('').toUpperCase()
 }
 
-async function validateProfile(payload, existingImages = []) {
+async function validateProfile(payload, existingImages = [], existingEvidence = []) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new ApiError(400, 'Datos del perfil no válidos.')
   const name = cleanText(payload.name, 60, 'El nombre')
   if (!name) throw new ApiError(400, 'El nombre es obligatorio.')
@@ -162,6 +162,10 @@ async function validateProfile(payload, existingImages = []) {
     experience: protectPublicText(cleanText(payload.experience, 600, 'La descripción de la experiencia')),
     zones,
     images: await validateImages(payload.images, existingImages, { maxCount: 1, maxDimension: 512 }),
+    verificationEvidence: (await validateImages(payload.verificationEvidence, existingEvidence, { maxCount: 1 })).map((image) => ({
+      ...image,
+      name: `Documento de identidad.${image.dataUrl.startsWith('data:image/png;') ? 'png' : 'jpg'}`,
+    })),
     email,
     phone: cleanText(payload.phone, 120, 'El teléfono'),
     address: cleanText(payload.address, 120, 'La dirección'),
@@ -175,7 +179,7 @@ function findProfile(database, providerId = demoUserId) {
   const existing = database.profiles?.find((item) => item.providerId === providerId)
   if (existing) return existing
   const user = database.users.find((item) => item.id === providerId)
-  return { providerId, name: user?.name || '', headline: '', about: '', experienceYears: null, experience: '', zones: [], images: [], email: '', phone: '', address: '', legalId: '', verificationDocuments: '', bankAccount: '', updatedAt: null }
+  return { providerId, name: user?.name || '', headline: '', about: '', experienceYears: null, experience: '', zones: [], images: [], verificationEvidence: [], email: '', phone: '', address: '', legalId: '', verificationDocuments: '', bankAccount: '', updatedAt: null }
 }
 
 function toPublicProfile(profile) {
@@ -252,12 +256,14 @@ function requestHistory(item) {
 }
 
 function requestView(item, database, role) {
+  const images = item.images ?? []
+  const showImages = role === 'Cliente' || contactAllowed(item.status)
   const base = {
     id: item.id, serviceId: item.serviceId, serviceTitle: item.serviceTitle,
     providerName: item.providerName, createdAt: item.createdAt,
     updatedAt: item.updatedAt || item.createdAt, status: item.status,
     need: item.need, urgency: item.urgency || null, location: item.location || null,
-    estimate: item.estimate ?? null, history: requestHistory(item), images: item.images ?? [],
+    estimate: item.estimate ?? null, history: requestHistory(item), images: showImages ? images : [],
     ...financeView(item),
   }
   if (role === 'Cliente') {
@@ -271,6 +277,7 @@ function requestView(item, database, role) {
   const client = findClientProfile(database, item.clientId)
   return {
     ...base, clientName: client.name,
+    hiddenImageCount: showImages ? 0 : images.length,
     ...(contactAllowed(item.status) ? { directions: item.directions || '' } : {}),
     clientContact: contactAllowed(item.status)
       ? { phone: client.phone, email: client.email, address: client.address }
@@ -375,7 +382,7 @@ function verificationChecks(profile) {
   const filled = (value) => typeof value === 'string' && value.trim() !== ''
   return [
     { key: 'identity', label: 'Identificación legal registrada', met: filled(profile.legalId) },
-    { key: 'document', label: 'Documento de verificación indicado', met: filled(profile.verificationDocuments) },
+    { key: 'document', label: 'Referencia y foto del documento de identidad', met: filled(profile.verificationDocuments) && (profile.verificationEvidence ?? []).length > 0 },
     { key: 'contact', label: 'Correo y teléfono de contacto', met: filled(profile.email) && filled(profile.phone) },
     { key: 'experience', label: 'Experiencia y zonas de atención descritas', met: filled(profile.experience) && (profile.zones ?? []).length > 0 },
   ]
@@ -561,15 +568,16 @@ export async function jsonApi(request, response, next) {
       requireRole(user, 'Proveedor')
       const payload = await readBody(request, maxImageBodyBytes)
       const profile = await mutateDatabase(async (database) => {
-        const fields = await validateProfile(payload, database.profiles.find((item) => item.providerId === user.id)?.images ?? [])
+        const existing = database.profiles.find((item) => item.providerId === user.id)
+        const fields = await validateProfile(payload, existing?.images ?? [], existing?.verificationEvidence ?? [])
         let current = database.profiles.find((item) => item.providerId === user.id)
         if (!current) {
           current = { providerId: user.id }
           database.profiles.push(current)
         }
-        const identityBefore = `${current.legalId || ''}|${current.verificationDocuments || ''}`
+        const identityBefore = JSON.stringify([current.legalId, current.verificationDocuments, current.verificationEvidence])
         Object.assign(current, fields, { updatedAt: new Date().toISOString() })
-        if (identityBefore !== `${fields.legalId}|${fields.verificationDocuments}` && ['Verificado', 'En revisión'].includes(verificationOf(current).status)) {
+        if (identityBefore !== JSON.stringify([fields.legalId, fields.verificationDocuments, fields.verificationEvidence]) && ['Verificado', 'En revisión'].includes(verificationOf(current).status)) {
           current.verification = { status: 'Sin verificar', requestedAt: null, reviewedAt: null, note: 'Cambiaste tus datos de identidad: solicita una nueva verificación.' }
         }
         const account = database.users.find((item) => item.id === user.id)
@@ -625,7 +633,11 @@ export async function jsonApi(request, response, next) {
           throw new ApiError(400, 'Selecciona una zona de atención del proveedor.')
         }
         const directions = cleanText(payload.directions, 300, 'Las indicaciones privadas')
-        const images = await validateImages(payload.images)
+        // The original filename can contain a phone number, address or email.
+        const images = (await validateImages(payload.images)).map((image, index) => ({
+          ...image,
+          name: `Foto ${index + 1}.${image.dataUrl.startsWith('data:image/png;') ? 'png' : 'jpg'}`,
+        }))
         if (!requestUrgencies.includes(payload.urgency)) throw new ApiError(400, 'Selecciona una urgencia válida.')
         const at = new Date().toISOString()
         const item = {
@@ -810,6 +822,7 @@ export async function jsonApi(request, response, next) {
       const verifications = database.profiles.map((profile) => ({
         providerId: profile.providerId, name: profile.name,
         legalId: profile.legalId || '', documentReference: profile.verificationDocuments || '',
+        verificationEvidence: profile.verificationEvidence ?? [],
         email: profile.email || '', phone: profile.phone || '',
         experience: profile.experience || '', zones: profile.zones || [],
         ...verificationView(profile),
@@ -828,6 +841,9 @@ export async function jsonApi(request, response, next) {
         if (!['approve', 'reject'].includes(payload?.action)) throw new ApiError(400, 'Acción de revisión no válida.')
         if (payload.action === 'approve' && !verificationChecks(profile).every((check) => check.met)) {
           throw new ApiError(409, 'El perfil ya no cumple todos los criterios de verificación.')
+        }
+        if (payload.action === 'approve' && payload.reviewedEvidence !== true) {
+          throw new ApiError(400, 'Confirma que revisaste el documento de identidad antes de aprobar.')
         }
         const note = payload.action === 'reject'
           ? requiredText(payload.note, 5, 200, 'El motivo del rechazo')

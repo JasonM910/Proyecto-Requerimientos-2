@@ -237,7 +237,7 @@ function Search({ onRequestCreated, onNotice }) {
             <Textarea id="request-directions" maxLength={300} rows={3} placeholder="Dirección exacta o indicaciones para llegar." value={requestForm.directions} onChange={(event) => setRequestForm({ ...requestForm, directions: event.target.value })} disabled={requestBusy} />
             <p className="text-xs text-muted-foreground">El proveedor podrá verlas solo después de que aceptes su propuesta.</p>
           </div>
-          <ImagePicker id="request-images" label="Fotos del problema o área del trabajo" images={requestForm.images} onChange={(images) => setRequestForm((current) => ({ ...current, images }))} disabled={requestBusy} hint="Hasta 3 imágenes JPG o PNG de 3 MB. El proveedor las verá al recibir tu solicitud; evita datos personales visibles en la foto." />
+          <ImagePicker id="request-images" label="Fotos del problema o área del trabajo" images={requestForm.images} onChange={(images) => setRequestForm((current) => ({ ...current, images }))} disabled={requestBusy} hint="Hasta 3 imágenes JPG o PNG de 3 MB. El proveedor las verá cuando aceptes su propuesta. Evita incluir datos personales visibles en la foto." />
           {requestError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{requestError}</p>}
           <DialogFooter className="border-t pt-4">
             <Button type="button" variant="outline" onClick={() => setRequestService(null)} disabled={requestBusy}>Cancelar</Button>

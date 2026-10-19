@@ -67,20 +67,30 @@ test('RF-24: las fotos de la publicación se guardan, aparecen en la búsqueda y
   } finally { await provider.dispose(); await client.dispose() }
 })
 
-test('RF-24: el cliente adjunta una foto y el proveedor la ve en la solicitud', async ({ page, playwright, baseURL }) => {
+test('RF-24: el cliente adjunta una foto y el proveedor la ve tras la aceptación', async ({ page, playwright, baseURL }) => {
   const client = await account(playwright, baseURL, 'Cliente')
   const provider = await account(playwright, baseURL, 'Proveedor')
   try {
     await page.goto('/')
-    const png = await image(page, 'image/png', 'problema.png')
+    const png = await image(page, 'image/png', 'ana@ejemplo.com-casa-12.png')
     const request = { serviceId: 'demo-1', need: 'Hay una fuga visible debajo del fregadero.', urgency: 'Flexible', location: 'Quesada', images: [png] }
     const created = await client.post('/api/client/requests', { data: request })
     expect(created.status()).toBe(201)
     const id = (await created.json()).request.id
     const received = (await (await provider.get('/api/provider/requests')).json()).requests.find((item) => item.id === id)
-    expect(received.images[0]).toEqual(expect.objectContaining({ name: png.name, dataUrl: expect.stringMatching(/^data:image\/png;base64,/) }))
+    expect(received.images).toEqual([])
+    expect(received.hiddenImageCount).toBe(1)
     expect(received.clientContact).toBeNull()
-    expect(JSON.parse(await readFile(process.env.HOGAR_DB_PATH, 'utf8')).requests.find((item) => item.id === id).images).toEqual(received.images)
+    const clientView = (await (await client.get('/api/client/requests')).json()).requests.find((item) => item.id === id)
+    expect(clientView.images[0]).toEqual(expect.objectContaining({ name: 'Foto 1.png', dataUrl: expect.stringMatching(/^data:image\/png;base64,/) }))
+    expect(JSON.stringify(clientView)).not.toContain(png.name)
+    expect(JSON.parse(await readFile(process.env.HOGAR_DB_PATH, 'utf8')).requests.find((item) => item.id === id).images).toEqual(clientView.images)
+    expect((await provider.patch(`/api/provider/requests/${id}`, { data: { action: 'offer', message: 'Puedo revisar la fuga esta semana.' } })).status()).toBe(200)
+    expect((await (await provider.get('/api/provider/requests')).json()).requests.find((item) => item.id === id).images).toEqual([])
+    expect((await client.patch(`/api/client/requests/${id}`, { data: { action: 'accept' } })).status()).toBe(200)
+    const accepted = (await (await provider.get('/api/provider/requests')).json()).requests.find((item) => item.id === id)
+    expect(accepted.images).toEqual(clientView.images)
+    expect(accepted.hiddenImageCount).toBe(0)
 
     const fake = { name: 'falso.png', dataUrl: `data:image/png;base64,${Buffer.from('No es una imagen').toString('base64')}` }
     expect((await client.post('/api/client/requests', { data: { ...request, images: [fake] } })).status()).toBe(400)
@@ -90,7 +100,7 @@ test('RF-24: el cliente adjunta una foto y el proveedor la ve en la solicitud', 
   } finally { await client.dispose(); await provider.dispose() }
 })
 
-test('RF-24: se pueden cargar JPG y PNG desde ambos formularios', async ({ page }) => {
+test('RF-24: se pueden cargar JPG y PNG desde ambos formularios', async ({ page, playwright, baseURL }) => {
   const captures = resolve('test-results', 'capturas')
   await mkdir(captures, { recursive: true })
   await login(page, 'Proveedor')
@@ -140,16 +150,24 @@ test('RF-24: se pueden cargar JPG y PNG desde ambos formularios', async ({ page 
   await enlarged.getByRole('button', { name: 'Cerrar imagen' }).click()
   await requestForm.getByRole('button', { name: 'Enviar solicitud' }).click()
   await expect(page.getByRole('heading', { name: 'Mis solicitudes', level: 1 })).toBeVisible()
-  await expect(page.getByRole('img', { name: /Foto de la solicitud 1: problema.jpg/ })).toBeVisible()
-  await page.getByRole('button', { name: 'Ampliar Foto de la solicitud 1: problema.jpg' }).click()
+  await expect(page.getByRole('img', { name: /Foto de la solicitud 1: Foto 1.jpg/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Ampliar Foto de la solicitud 1: Foto 1.jpg' }).click()
   await expect(enlarged.getByRole('img')).toBeVisible()
   await enlarged.getByRole('button', { name: 'Cerrar imagen' }).click()
   await page.screenshot({ path: join(captures, '13-solicitud-con-foto.png'), animations: 'disabled' })
+  const client = await account(playwright, baseURL, 'Cliente')
+  const provider = await account(playwright, baseURL, 'Proveedor')
+  try {
+    const requests = (await (await client.get('/api/client/requests')).json()).requests
+    const id = requests.find((item) => item.serviceTitle === 'Servicio visual RF24').id
+    expect((await provider.patch(`/api/provider/requests/${id}`, { data: { action: 'offer', message: 'Puedo atender este trabajo esta semana.' } })).status()).toBe(200)
+    expect((await client.patch(`/api/client/requests/${id}`, { data: { action: 'accept' } })).status()).toBe(200)
+  } finally { await client.dispose(); await provider.dispose() }
   await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click()
   await login(page, 'Proveedor')
   await page.getByRole('button', { name: 'Solicitudes recibidas', exact: true }).click()
-  await expect(page.getByRole('img', { name: /Foto de la solicitud 1: problema.jpg/ })).toBeVisible()
-  await page.getByRole('button', { name: 'Ampliar Foto de la solicitud 1: problema.jpg' }).click()
+  await expect(page.getByRole('img', { name: /Foto de la solicitud 1: Foto 1.jpg/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Ampliar Foto de la solicitud 1: Foto 1.jpg' }).click()
   await expect(enlarged.getByRole('img')).toBeVisible()
 })
 
