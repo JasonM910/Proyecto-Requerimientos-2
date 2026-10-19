@@ -1,4 +1,4 @@
-import { ChevronRight, ClipboardList, Layers3, LayoutGrid, LogOut, Search, Sparkles, UserRound } from 'lucide-react'
+import { ChevronRight, ClipboardList, Layers3, LayoutGrid, LogOut, Receipt, Search, ShieldCheck, Sparkles, UserRound } from 'lucide-react'
 import { motion } from 'motion/react'
 import Brand from '@/Brand'
 import { Button } from '@/components/ui/button'
@@ -9,12 +9,16 @@ const providerNavigation = [
   { id: 'servicios', label: 'Mis servicios', mobileLabel: 'Servicios', icon: LayoutGrid },
   { id: 'perfil', label: 'Mi perfil', mobileLabel: 'Mi perfil', icon: UserRound },
   { id: 'solicitudes', label: 'Solicitudes recibidas', mobileLabel: 'Solicitudes', icon: Layers3 },
+  { id: 'pagos', label: 'Pagos y facturación', mobileLabel: 'Pagos', icon: Receipt },
+  { id: 'seguridad', label: 'Seguridad y confianza', mobileLabel: 'Seguridad', icon: ShieldCheck },
 ]
 
 const clientNavigation = [
   { id: 'solicitudes', label: 'Mis solicitudes', mobileLabel: 'Solicitudes', icon: ClipboardList },
   { id: 'buscar', label: 'Buscar servicios', mobileLabel: 'Buscar', icon: Search },
+  { id: 'pagos', label: 'Pagos y facturación', mobileLabel: 'Pagos', icon: Receipt },
   { id: 'perfil', label: 'Mi perfil', mobileLabel: 'Mi perfil', icon: UserRound },
+  { id: 'seguridad', label: 'Seguridad y confianza', mobileLabel: 'Seguridad', icon: ShieldCheck },
 ]
 
 function AppShell({ user, view, onViewChange, onLogout, alerts = 0, children }) {
@@ -57,9 +61,9 @@ function AppShell({ user, view, onViewChange, onLogout, alerts = 0, children }) 
             <Badge variant="outline" className="hidden gap-2 rounded-full bg-secondary px-3 py-2 text-[10px] font-semibold text-muted-foreground sm:inline-flex"><span className="size-1.5 rounded-full bg-brand-accent" />Servicios del hogar</Badge>
             <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground lg:hidden" onClick={onLogout} aria-label="Cerrar sesión" title="Cerrar sesión"><LogOut className="size-[18px]" aria-hidden="true" /></Button>
           </div>
-          <nav className="grid grid-cols-3 gap-2 px-4 pb-3 lg:hidden" aria-label="Navegación principal móvil">
+          <nav className="grid grid-cols-5 gap-1 px-3 pb-3 lg:hidden" aria-label="Navegación principal móvil">
             {navigation.map(({ id, mobileLabel, label, icon: Icon }) => (
-              <Button key={id} variant="ghost" className={cn('h-14 flex-col gap-1 rounded-xl px-2 text-[11px] text-muted-foreground sm:h-10 sm:flex-row sm:gap-2 sm:text-xs', view === id && 'bg-accent text-primary hover:bg-accent')} aria-label={label} aria-current={view === id ? 'page' : undefined} onClick={() => onViewChange(id)}><Icon className="size-4" aria-hidden="true" />{mobileLabel}{id === 'solicitudes' && alerts > 0 && <span aria-hidden="true" className="rounded-full bg-apricot px-1.5 text-[10px] text-apricot-foreground">{alerts}</span>}</Button>
+              <Button key={id} variant="ghost" className={cn('h-14 flex-col gap-1 rounded-xl px-1 text-[11px] text-muted-foreground sm:h-10 sm:flex-row sm:gap-2 sm:text-xs', view === id && 'bg-accent text-primary hover:bg-accent')} aria-label={label} aria-current={view === id ? 'page' : undefined} onClick={() => onViewChange(id)}><Icon className="size-4" aria-hidden="true" />{mobileLabel}{id === 'solicitudes' && alerts > 0 && <span aria-hidden="true" className="rounded-full bg-apricot px-1.5 text-[10px] text-apricot-foreground">{alerts}</span>}</Button>
             ))}
           </nav>
         </header>

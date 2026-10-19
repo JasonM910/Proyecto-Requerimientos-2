@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import Billing from './Billing.jsx'
 import ClientProfile from './ClientProfile.jsx'
 import Requests from './Requests.jsx'
 import Search from './Search.jsx'
+import Security from './Security.jsx'
 import AppShell from '@/components/AppShell'
 import { Notice } from '@/components/page'
 
@@ -26,7 +28,7 @@ function ClientApp({ initialUser, onLogout }) {
 
   return (
     <AppShell user={user} view={view} onViewChange={setView} onLogout={onLogout}>
-      {view === 'solicitudes' ? <Requests role="Cliente" /> : view === 'buscar' ? <Search onRequestCreated={() => { setNotice('Solicitud enviada al proveedor'); setView('solicitudes') }} /> : <ClientProfile onNotice={setNotice} onSaved={updateUser} />}
+      {view === 'solicitudes' ? <Requests role="Cliente" onNotice={setNotice} /> : view === 'seguridad' ? <Security role="Cliente" onNotice={setNotice} /> : view === 'pagos' ? <Billing role="Cliente" onNotice={setNotice} /> : view === 'buscar' ? <Search onNotice={setNotice} onRequestCreated={() => { setNotice('Solicitud enviada al proveedor'); setView('solicitudes') }} /> : <ClientProfile onNotice={setNotice} onSaved={updateUser} />}
       <Notice message={notice} />
     </AppShell>
   )

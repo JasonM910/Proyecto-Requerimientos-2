@@ -27,6 +27,7 @@ export const updateProfile = (profile) => request('/api/profile', { method: 'PUT
 export const getPublicProfile = () => request('/api/profile/public')
 export const getClientProfile = () => request('/api/client/profile')
 export const updateClientProfile = (profile) => request('/api/client/profile', { method: 'PUT', body: JSON.stringify(profile) })
+export const getBilling = (period = 'all') => request(`/api/billing?period=${encodeURIComponent(period)}`)
 export const getClientRequests = () => request('/api/client/requests')
 export const getProviderRequests = () => request('/api/provider/requests')
 export const createRequest = (data) => request('/api/client/requests', { method: 'POST', body: JSON.stringify(data) })
@@ -40,3 +41,8 @@ export function searchServices({ q = '', category = '', group = '', zone = '' } 
   if (zone) params.set('zone', zone)
   return request(`/api/search?${params}`)
 }
+export const getVerification = () => request('/api/provider/verification')
+export const updateVerification = (data) => request('/api/provider/verification', { method: 'PATCH', body: JSON.stringify(data) })
+export const getReports = () => request('/api/reports')
+export const createReport = (data) => request('/api/reports', { method: 'POST', body: JSON.stringify(data) })
+export const updateReport = (id, data) => request(`/api/reports/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) })

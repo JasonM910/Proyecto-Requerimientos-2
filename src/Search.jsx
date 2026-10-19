@@ -1,5 +1,5 @@
 ﻿import { useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, LockKeyhole, MapPin, Send, Search as SearchIcon, X } from 'lucide-react'
+import { ArrowUpRight, Flag, LockKeyhole, MapPin, Send, Search as SearchIcon, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AnimatedItem, EmptyState, Page, PageFooter, PageHeader } from '@/components/page'
 import { categoryStyle } from '@/lib/category-styles'
 import { groupCategories } from '@/lib/categories'
+import { ReportDialog } from '@/components/ReportDialog'
+import { VerifiedBadge } from '@/components/Trust'
 import { createRequest, searchServices } from './api.js'
 
 const initialsOf = (name) => name.split(' ').filter(Boolean).slice(0, 2).map((word) => word[0]).join('').toUpperCase() || '—'
@@ -29,7 +31,7 @@ function Zones({ zones, max }) {
   </div>
 }
 
-function Search({ onRequestCreated }) {
+function Search({ onRequestCreated, onNotice }) {
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('Todas')
   const [group, setGroup] = useState('')
@@ -38,6 +40,7 @@ function Search({ onRequestCreated }) {
   const [error, setError] = useState('')
   const [detailId, setDetailId] = useState(null)
   const [requestService, setRequestService] = useState(null)
+  const [reportProvider, setReportProvider] = useState(null)
   const [requestForm, setRequestForm] = useState({ need: '', urgency: 'Flexible', location: '' })
   const [requestError, setRequestError] = useState('')
   const [requestBusy, setRequestBusy] = useState(false)
@@ -146,7 +149,7 @@ function Search({ onRequestCreated }) {
                     <div className="mt-auto border-t border-border/70 pt-4">
                       <div className="mb-3 flex items-center gap-2.5">
                         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-primary" aria-hidden="true">{initialsOf(service.provider.name)}</span>
-                        <div className="min-w-0"><p className="truncate text-sm font-semibold">{service.provider.name}</p><p className="truncate text-xs text-muted-foreground">{service.provider.headline || 'Proveedor de servicios'}</p></div>
+                        <div className="min-w-0"><p className="flex items-center gap-1.5 text-sm font-semibold"><span className="truncate">{service.provider.name}</span>{service.provider.verified && <VerifiedBadge compact />}</p><p className="truncate text-xs text-muted-foreground">{service.provider.headline || 'Proveedor de servicios'}</p></div>
                       </div>
                       <Zones zones={service.provider.zones} max={3} />
                       <Button variant="ghost" className="mt-4 w-full justify-between rounded-lg px-2 text-primary hover:bg-accent hover:text-primary" aria-haspopup="dialog" onClick={(event) => { detailTrigger.current = event.currentTarget; setDetailId(service.id) }}>
@@ -179,7 +182,7 @@ function Search({ onRequestCreated }) {
           <section className="space-y-4 rounded-xl border border-border bg-background p-4 sm:p-5" aria-label="Perfil público del proveedor">
             <div className="flex items-center gap-3">
               <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-primary" aria-hidden="true">{initialsOf(detail.provider.name)}</span>
-              <div><h3 className="font-heading font-bold text-brand">{detail.provider.name}</h3><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{detail.provider.headline || 'Proveedor de servicios'}{detail.provider.experienceYears != null && ` · ${yearsLabel(detail.provider.experienceYears)}`}</p></div>
+              <div><h3 className="flex flex-wrap items-center gap-2 font-heading font-bold text-brand">{detail.provider.name}{detail.provider.verified && <VerifiedBadge />}</h3><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{detail.provider.headline || 'Proveedor de servicios'}{detail.provider.experienceYears != null && ` · ${yearsLabel(detail.provider.experienceYears)}`}</p></div>
             </div>
             {detail.provider.about && <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{detail.provider.about}</p>}
             {detail.provider.experience && <div className="space-y-2"><h4 className="text-sm font-semibold">Experiencia</h4><p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{detail.provider.experience}</p></div>}
@@ -187,7 +190,7 @@ function Search({ onRequestCreated }) {
           </section>
           <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground"><LockKeyhole className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />Los datos de contacto del proveedor no se muestran en la búsqueda.</p>
         </div>
-        <DialogFooter className="border-t border-border pt-4"><Button variant="outline" onClick={() => setDetailId(null)}>Cerrar</Button><Button onClick={() => { setRequestService(detail); setRequestForm({ need: '', urgency: 'Flexible', location: '' }); setRequestError(''); setDetailId(null) }}><Send className="size-4" aria-hidden="true" />Solicitar servicio</Button></DialogFooter>
+        <DialogFooter className="border-t border-border pt-4"><Button variant="ghost" className="text-muted-foreground sm:mr-auto" onClick={() => { setReportProvider(detail); setDetailId(null) }}><Flag className="size-4" aria-hidden="true" />Reportar proveedor</Button><Button variant="outline" onClick={() => setDetailId(null)}>Cerrar</Button><Button onClick={() => { setRequestService(detail); setRequestForm({ need: '', urgency: 'Flexible', location: '' }); setRequestError(''); setDetailId(null) }}><Send className="size-4" aria-hidden="true" />Solicitar servicio</Button></DialogFooter>
       </DialogContent>}
     </Dialog>
     <Dialog open={Boolean(requestService)} onOpenChange={(open) => { if (!open && !requestBusy) setRequestService(null) }}>
@@ -224,6 +227,7 @@ function Search({ onRequestCreated }) {
         </form>
       </DialogContent>}
     </Dialog>
+    <ReportDialog open={Boolean(reportProvider)} onOpenChange={(open) => { if (!open) setReportProvider(null) }} target={reportProvider ? { providerId: reportProvider.provider.id } : undefined} targetLabel={reportProvider?.provider.name} onCreated={() => onNotice?.('Reporte enviado. Gracias por avisarnos')} />
     <PageFooter />
   </Page>
 }

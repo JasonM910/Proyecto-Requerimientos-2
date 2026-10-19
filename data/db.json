@@ -191,7 +191,13 @@
       "updatedAt": "2026-10-04T22:00:00.000Z",
       "legalId": "DEMO-123456",
       "verificationDocuments": "Documento de identidad registrado (demo)",
-      "bankAccount": "Cuenta de demostración"
+      "bankAccount": "Cuenta de demostración",
+      "verification": {
+        "status": "Verificado",
+        "requestedAt": "2026-09-20T12:00:00.000Z",
+        "reviewedAt": "2026-09-22T12:00:00.000Z",
+        "note": ""
+      }
     },
     {
       "providerId": "proveedor-2",
@@ -207,7 +213,15 @@
       "email": "laura@ejemplo.com",
       "phone": "8777 1111",
       "address": "Barrio demo 2",
-      "updatedAt": "2026-09-30T12:00:00.000Z"
+      "updatedAt": "2026-09-30T12:00:00.000Z",
+      "legalId": "DEMO-654321",
+      "verificationDocuments": "Documento de identidad registrado (demo)",
+      "verification": {
+        "status": "Verificado",
+        "requestedAt": "2026-09-21T12:00:00.000Z",
+        "reviewedAt": "2026-09-23T12:00:00.000Z",
+        "note": ""
+      }
     },
     {
       "providerId": "proveedor-3",
@@ -223,7 +237,15 @@
       "email": "andres@ejemplo.com",
       "phone": "8666 2222",
       "address": "Barrio demo 3",
-      "updatedAt": "2026-09-30T12:00:00.000Z"
+      "updatedAt": "2026-09-30T12:00:00.000Z",
+      "legalId": "DEMO-778899",
+      "verificationDocuments": "Documento de identidad registrado (demo)",
+      "verification": {
+        "status": "En revisión",
+        "requestedAt": "2026-10-10T12:00:00.000Z",
+        "reviewedAt": null,
+        "note": ""
+      }
     },
     {
       "providerId": "proveedor-4",
@@ -254,6 +276,28 @@
   ],
   "requests": [
     {
+      "id": "15ebaec5-d20c-42fc-b5f4-05432026700f",
+      "clientId": "cliente-demo",
+      "providerId": "proveedor-demo",
+      "serviceId": "demo-1",
+      "serviceTitle": "Reparación e instalación de tuberías",
+      "providerName": "Proveedor demo",
+      "need": "tuberiw mala en un baño",
+      "urgency": "Flexible",
+      "location": "quesda",
+      "createdAt": "2026-10-18T23:47:56.861Z",
+      "updatedAt": "2026-10-18T23:47:56.861Z",
+      "status": "Pendiente",
+      "history": [
+        {
+          "status": "Pendiente",
+          "at": "2026-10-18T23:47:56.861Z",
+          "actor": "Cliente",
+          "action": "created"
+        }
+      ]
+    },
+    {
       "id": "sol-1",
       "clientId": "cliente-demo",
       "providerId": "proveedor-demo",
@@ -273,7 +317,58 @@
       "providerName": "Proveedor demo",
       "need": "Limpieza de cocina y baños.",
       "createdAt": "2026-10-06T14:00:00.000Z",
-      "status": "Aceptado"
+      "status": "Aceptado",
+      "quotes": [
+        {
+          "version": 1,
+          "by": "Proveedor",
+          "at": "2026-10-06T16:00:00.000Z",
+          "items": [
+            {
+              "description": "Limpieza de cocina",
+              "type": "Mano de obra",
+              "quantity": 3,
+              "unitPrice": 6000,
+              "lineTotal": 18000
+            },
+            {
+              "description": "Limpieza de baños",
+              "type": "Mano de obra",
+              "quantity": 2,
+              "unitPrice": 6500,
+              "lineTotal": 13000
+            },
+            {
+              "description": "Productos de limpieza",
+              "type": "Materiales",
+              "quantity": 1,
+              "unitPrice": 4000,
+              "lineTotal": 4000
+            }
+          ],
+          "taxRate": 13,
+          "subtotal": 35000,
+          "tax": 4550,
+          "total": 39550
+        }
+      ],
+      "estimate": 39550,
+      "agreement": {
+        "total": 39550,
+        "quoteVersion": 1,
+        "via": "Presupuesto aprobado por el cliente",
+        "at": "2026-10-06T18:00:00.000Z"
+      },
+      "payments": [
+        {
+          "id": "pago-demo-1",
+          "reference": "PAGO-SOL2-1",
+          "amount": 15000,
+          "method": "SINPE Móvil",
+          "simulated": true,
+          "at": "2026-10-07T15:00:00.000Z"
+        }
+      ]
     },
     {
       "id": "sol-3",
@@ -284,7 +379,108 @@
       "providerName": "Proveedor demo",
       "need": "Poda y cuidado del jardín.",
       "createdAt": "2026-09-28T14:00:00.000Z",
-      "status": "Finalizado"
+      "status": "Finalizado",
+      "quotes": [
+        {
+          "version": 1,
+          "by": "Proveedor",
+          "at": "2026-09-28T16:00:00.000Z",
+          "items": [
+            {
+              "description": "Poda de césped y setos",
+              "type": "Mano de obra",
+              "quantity": 4,
+              "unitPrice": 5500,
+              "lineTotal": 22000
+            },
+            {
+              "description": "Transporte de residuos",
+              "type": "Transporte",
+              "quantity": 1,
+              "unitPrice": 3500,
+              "lineTotal": 3500
+            }
+          ],
+          "taxRate": 0,
+          "subtotal": 25500,
+          "tax": 0,
+          "total": 25500
+        }
+      ],
+      "estimate": 25500,
+      "agreement": {
+        "total": 25500,
+        "quoteVersion": 1,
+        "via": "Presupuesto aprobado por el cliente",
+        "at": "2026-09-28T18:00:00.000Z"
+      },
+      "payments": [
+        {
+          "id": "pago-demo-2",
+          "reference": "PAGO-SOL3-1",
+          "amount": 25500,
+          "method": "Transferencia",
+          "simulated": true,
+          "at": "2026-09-30T14:00:00.000Z"
+        }
+      ],
+      "invoice": {
+        "number": "HOG-2026-0001",
+        "issuedAt": "2026-09-30T12:00:00.000Z",
+        "total": 25500
+      }
+    }
+  ],
+  "reports": [
+    {
+      "id": "bd577967-0d90-4542-89a5-65e6b9f473e6",
+      "reporterId": "cliente-demo",
+      "reporterRole": "Cliente",
+      "category": "Perfil o publicación falsa",
+      "description": "la persona tiene un perfil falso",
+      "targetName": "Proveedor demo",
+      "requestId": "15ebaec5-d20c-42fc-b5f4-05432026700f",
+      "requestTitle": "Reparación e instalación de tuberías",
+      "status": "Recibido",
+      "createdAt": "2026-10-19T00:14:08.417Z",
+      "updatedAt": "2026-10-19T00:14:08.417Z",
+      "history": [
+        {
+          "status": "Recibido",
+          "at": "2026-10-19T00:14:08.417Z",
+          "note": "Reporte recibido por el equipo de Hogar+ (simulado)."
+        }
+      ]
+    },
+    {
+      "id": "reporte-demo-1",
+      "reporterId": "cliente-demo",
+      "reporterRole": "Cliente",
+      "category": "Cobro o pago irregular",
+      "description": "Quiero confirmar que el monto cobrado coincide con la cotización aprobada.",
+      "targetName": "Proveedor demo",
+      "requestId": "sol-3",
+      "requestTitle": "Mantenimiento de jardines",
+      "status": "Resuelto",
+      "createdAt": "2026-10-04T12:00:00.000Z",
+      "updatedAt": "2026-10-06T12:00:00.000Z",
+      "history": [
+        {
+          "status": "Recibido",
+          "at": "2026-10-04T12:00:00.000Z",
+          "note": "Reporte recibido por el equipo de Hogar+ (simulado)."
+        },
+        {
+          "status": "En revisión",
+          "at": "2026-10-05T12:00:00.000Z",
+          "note": "El equipo de Hogar+ está revisando el caso (simulado)."
+        },
+        {
+          "status": "Resuelto",
+          "at": "2026-10-06T12:00:00.000Z",
+          "note": "Caso resuelto. Gracias por ayudarnos a mantener la comunidad segura (simulado)."
+        }
+      ]
     }
   ]
 }

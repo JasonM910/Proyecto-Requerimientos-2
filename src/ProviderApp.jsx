@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, CalendarDays, Check, Layers3, LayoutGrid, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react'
 import Profile from './Profile.jsx'
+import Billing from './Billing.jsx'
 import Requests from './Requests.jsx'
+import Security from './Security.jsx'
 import AppShell from '@/components/AppShell'
 import { AnimatedItem, EmptyState, Notice, Page, PageFooter, PageHeader } from '@/components/page'
 import { Button } from '@/components/ui/button'
@@ -165,7 +167,7 @@ function ProviderApp({ initialUser, onLogout }) {
   }
 
   return <AppShell user={user} view={view} onViewChange={setView} onLogout={onLogout} alerts={pendingCount}>
-    {view === 'solicitudes' ? <Requests role="Proveedor" onUpdated={() => getProviderRequests().then((data) => setPendingCount(data.requests.filter((item) => item.status === 'Pendiente').length)).catch(() => {})} /> : view === 'perfil' ? <Profile onNotice={setNotice} onSaved={(profile) => setUser((current) => ({ ...current, name: profile.name, initials: profile.name.split(' ').filter(Boolean).slice(0, 2).map((word) => word[0]).join('').toUpperCase() }))} /> : <Page id="servicios">
+    {view === 'pagos' ? <Billing role="Proveedor" onNotice={setNotice} /> : view === 'seguridad' ? <Security role="Proveedor" onNotice={setNotice} /> : view === 'solicitudes' ? <Requests role="Proveedor" onNotice={setNotice} onUpdated={() => getProviderRequests().then((data) => setPendingCount(data.requests.filter((item) => item.status === 'Pendiente').length)).catch(() => {})} /> : view === 'perfil' ? <Profile onNotice={setNotice} onSaved={(profile) => setUser((current) => ({ ...current, name: profile.name, initials: profile.name.split(' ').filter(Boolean).slice(0, 2).map((word) => word[0]).join('').toUpperCase() }))} /> : <Page id="servicios">
       <PageHeader eyebrow="GESTIONA TUS PUBLICACIONES" title="Mis servicios" description="Publica lo que haces y mantén tu oferta siempre al día."
         action={<Button ref={createTrigger} size="lg" onClick={openCreate} disabled={loading || !!loadError} className="shadow-sm shadow-primary/20"><Plus aria-hidden="true" />Nuevo servicio</Button>} />
       <section className="mb-10 grid gap-4 sm:grid-cols-3" aria-label="Resumen de publicaciones">
