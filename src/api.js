@@ -43,6 +43,9 @@ export function searchServices({ q = '', category = '', group = '', zone = '' } 
 }
 export const getVerification = () => request('/api/provider/verification')
 export const updateVerification = (data) => request('/api/provider/verification', { method: 'PATCH', body: JSON.stringify(data) })
+export const getAdminVerifications = () => request('/api/admin/verifications')
+export const reviewVerification = (id, data) => request(`/api/admin/verifications/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) })
+export const getAdminReports = () => request('/api/admin/reports')
+export const reviewReport = (id, data) => request(`/api/admin/reports/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const getReports = () => request('/api/reports')
 export const createReport = (data) => request('/api/reports', { method: 'POST', body: JSON.stringify(data) })
-export const updateReport = (id, data) => request(`/api/reports/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) })

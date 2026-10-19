@@ -1,11 +1,12 @@
 # Hogar+
 
-Página de servicios del hogar con espacios separados para clientes y proveedores.
+Página de servicios del hogar con espacios separados para clientes, proveedores y el equipo de revisión.
 
 - Los usuarios inician sesión con correo o nombre de usuario y contraseña.
 - El cliente puede editar sus datos, buscar servicios, enviar solicitudes, responder aclaraciones y aceptar propuestas.
 - El proveedor puede editar su perfil, administrar publicaciones, responder solicitudes, cotizar e indicar el avance del trabajo.
-- El servidor limita cada ruta al rol correspondiente. Los datos de contacto del cliente solo se muestran al proveedor cuando una solicitud está aceptada o en una etapa posterior.
+- El equipo de Hogar+ revisa solicitudes de verificación e incidentes desde su propia bandeja.
+- El servidor limita cada ruta al rol correspondiente. El contacto y las indicaciones exactas del cliente solo se muestran al proveedor cuando acepta una propuesta.
 
 ## Ejecutar
 
@@ -47,7 +48,7 @@ npm run build
 npm run test:e2e
 ```
 
-Las pruebas de navegador requieren Google Chrome instalado. Arrancan un servidor local en el puerto `4175` con una copia temporal del JSON, comprueban ambos roles, publicaciones, perfiles, privacidad, modales y la vista móvil, y eliminan los datos de prueba al terminar. Tu archivo `data/db.json` no se modifica durante las pruebas.
+Las pruebas de navegador requieren Google Chrome instalado. Arrancan un servidor local en el puerto `4175` con una copia temporal del JSON, comprueban los tres roles, publicaciones, perfiles, solicitudes, privacidad, cotizaciones, reportes y la vista móvil, y eliminan los datos de prueba al terminar. Tu archivo `data/db.json` no se modifica durante las pruebas.
 
 ### Publicación y búsqueda de servicios (alcances 4 y 5)
 
@@ -63,17 +64,27 @@ Las pruebas de navegador requieren Google Chrome instalado. Arrancan un servidor
 
 ### Solicitudes y seguimiento (alcance 6)
 
-El cliente abre un servicio y envía la descripción del trabajo, la urgencia y una zona general. La solicitud aparece en el panel del proveedor, con un contador de solicitudes pendientes que se actualiza mientras la página está abierta. El proveedor puede pedir una aclaración, aceptar preliminarmente o enviar una cotización con monto estimado en colones. El cliente responde las aclaraciones y acepta una propuesta. Después el proveedor marca el trabajo como en proceso y finalizado. Ambas partes ven una cronología con fechas y mensajes.
+El cliente abre un servicio y envía la descripción del trabajo, la urgencia y una zona general elegida de las zonas del proveedor. Puede agregar indicaciones privadas para llegar. La solicitud aparece en el panel del proveedor, con un contador de solicitudes pendientes que se actualiza mientras la página está abierta. El proveedor puede pedir una aclaración, aceptar preliminarmente o enviar una cotización en colones. El cliente responde las aclaraciones y acepta una propuesta. Después el proveedor marca el trabajo como en proceso y finalizado. Ambas partes ven una cronología con fechas y mensajes.
 
-La aceptación del cliente habilita sus datos de contacto para ese proveedor; antes de ello la API no los incluye en su respuesta. Los mensajes previos a la aceptación rechazan correos, teléfonos y enlaces. El monto es una estimación simple: el desglose de costos, pagos y comprobantes corresponden al alcance 7. La notificación al proveedor ocurre dentro de la aplicación; se actualiza cada 15 segundos o al volver a la pestaña. No se envían correos ni avisos externos.
+La aceptación del cliente habilita sus datos de contacto y sus indicaciones privadas para ese proveedor; antes de ello la API no los incluye en su respuesta. Los mensajes previos a la aceptación rechazan correos, teléfonos y enlaces. La notificación al proveedor ocurre dentro de la aplicación; se actualiza cada 15 segundos o al volver a la pestaña. No se envían correos ni avisos externos.
 
 `tests/scopes-6.spec.js` recorre el flujo completo entre cliente y proveedor y verifica validaciones, permisos, privacidad, transiciones y persistencia. Las solicitudes iniciales permanecen como ejemplos de historial.
+
+### Cotizaciones y pagos (alcance 7)
+
+El proveedor desglosa mano de obra, materiales y otros conceptos; el cliente puede pedir ajustes, hacer una contraoferta, aceptar o rechazar. El panel financiero muestra cotizaciones y montos acordados, pagados y pendientes, con filtros de periodo. Los pagos se registran dentro de la aplicación y, al finalizar el trabajo, ambas partes pueden abrir el comprobante digital. Son registros de demostración: no se procesa dinero real. `tests/scopes-7.spec.js` comprueba estos flujos y sus permisos.
+
+### Seguridad y confianza (alcance 8)
+
+El proveedor solicita la verificación desde «Seguridad y confianza» cuando ha completado los datos requeridos. La cuenta «Equipo Hogar+» revisa la identificación y la referencia del documento, y aprueba o rechaza la solicitud. La insignia pública aparece solo mientras el perfil está verificado; un cambio en los datos de identidad la retira hasta una nueva revisión. La referencia del documento es texto de demostración; este flujo no permite subir archivos.
+
+Clientes y proveedores pueden enviar reportes generales o asociados a una solicitud; los clientes también pueden reportar un perfil. El equipo recibe los casos en su bandeja, registra su revisión y los resuelve. El autor ve el historial del caso en «Seguridad y confianza». `tests/scopes-8.spec.js` comprueba el acceso por rol, las decisiones y la privacidad del contacto y de las indicaciones de llegada.
 
 ## Datos
 
 Los usuarios, perfiles, categorías, publicaciones y solicitudes de ejemplo están en [`data/db.json`](data/db.json). La API local lee ese archivo y guarda allí las ediciones. Las contraseñas se almacenan como hashes con sal; la sesión se mantiene en una cookie `HttpOnly` y se invalida al cerrar sesión.
 
-Para probar ambos roles, selecciona una cuenta en la pantalla de inicio de sesión o usa:
+Para probar los roles, selecciona una cuenta en la pantalla de inicio de sesión o usa:
 
 | Rol | Correo | Contraseña |
 | --- | --- | --- |
@@ -82,5 +93,6 @@ Para probar ambos roles, selecciona una cuenta en la pantalla de inicio de sesi�
 | Laura Jiménez | `laura@hogar.test` | `Proveedor2026!` |
 | Andrés Solís | `andres@hogar.test` | `Proveedor2026!` |
 | Marta Rojas | `marta@hogar.test` | `Proveedor2026!` |
+| Equipo Hogar+ | `admin@hogar.test` | `Admin2026!` |
 
 No uses datos reales en este archivo de demostración. Para recuperar los datos iniciales, restaura `data/db.json` desde Git.

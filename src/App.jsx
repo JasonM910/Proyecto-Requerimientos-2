@@ -6,6 +6,7 @@ import { getSession, logout } from './api.js'
 
 const ProviderApp = lazy(() => import('./ProviderApp.jsx'))
 const ClientApp = lazy(() => import('./ClientApp.jsx'))
+const AdminApp = lazy(() => import('./AdminApp.jsx'))
 
 function LoadingScreen() {
   return <div className="grid min-h-dvh place-items-center text-sm text-muted-foreground" role="status"><span className="flex items-center gap-3"><LoaderCircle className="size-5 motion-safe:animate-spin" aria-hidden="true" />Cargando Hogar+...</span></div>
@@ -36,7 +37,7 @@ function App() {
   if (!session) return <Auth onLogin={setSession} />
   return <>
     <Suspense fallback={<LoadingScreen />}>
-    {session.role === 'Proveedor' ? <ProviderApp key={session.id} initialUser={session} onLogout={signOut} /> : <ClientApp key={session.id} initialUser={session} onLogout={signOut} />}
+    {session.role === 'Proveedor' ? <ProviderApp key={session.id} initialUser={session} onLogout={signOut} /> : session.role === 'Cliente' ? <ClientApp key={session.id} initialUser={session} onLogout={signOut} /> : <AdminApp key={session.id} initialUser={session} onLogout={signOut} />}
     </Suspense>
     <Notice message={logoutError} error />
   </>

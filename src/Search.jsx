@@ -41,7 +41,7 @@ function Search({ onRequestCreated, onNotice }) {
   const [detailId, setDetailId] = useState(null)
   const [requestService, setRequestService] = useState(null)
   const [reportProvider, setReportProvider] = useState(null)
-  const [requestForm, setRequestForm] = useState({ need: '', urgency: 'Flexible', location: '' })
+  const [requestForm, setRequestForm] = useState({ need: '', urgency: 'Flexible', location: '', directions: '' })
   const [requestError, setRequestError] = useState('')
   const [requestBusy, setRequestBusy] = useState(false)
   const detailTrigger = useRef(null)
@@ -190,7 +190,7 @@ function Search({ onRequestCreated, onNotice }) {
           </section>
           <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground"><LockKeyhole className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />Los datos de contacto del proveedor no se muestran en la búsqueda.</p>
         </div>
-        <DialogFooter className="border-t border-border pt-4"><Button variant="ghost" className="text-muted-foreground sm:mr-auto" onClick={() => { setReportProvider(detail); setDetailId(null) }}><Flag className="size-4" aria-hidden="true" />Reportar proveedor</Button><Button variant="outline" onClick={() => setDetailId(null)}>Cerrar</Button><Button onClick={() => { setRequestService(detail); setRequestForm({ need: '', urgency: 'Flexible', location: '' }); setRequestError(''); setDetailId(null) }}><Send className="size-4" aria-hidden="true" />Solicitar servicio</Button></DialogFooter>
+        <DialogFooter className="border-t border-border pt-4"><Button variant="ghost" className="text-muted-foreground sm:mr-auto" onClick={() => { setReportProvider(detail); setDetailId(null) }}><Flag className="size-4" aria-hidden="true" />Reportar proveedor</Button><Button variant="outline" onClick={() => setDetailId(null)}>Cerrar</Button><Button onClick={() => { setRequestService(detail); setRequestForm({ need: '', urgency: 'Flexible', location: detail.provider.zones[0] || '', directions: '' }); setRequestError(''); setDetailId(null) }}><Send className="size-4" aria-hidden="true" />Solicitar servicio</Button></DialogFooter>
       </DialogContent>}
     </Dialog>
     <Dialog open={Boolean(requestService)} onOpenChange={(open) => { if (!open && !requestBusy) setRequestService(null) }}>
@@ -216,8 +216,16 @@ function Search({ onRequestCreated, onNotice }) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="request-location">Zona general <span className="text-destructive">*</span></Label>
-              <Input id="request-location" required minLength={3} maxLength={120} placeholder="Ej. Quesada" value={requestForm.location} onChange={(event) => setRequestForm({ ...requestForm, location: event.target.value })} disabled={requestBusy} />
+              <Select value={requestForm.location} onValueChange={(value) => setRequestForm({ ...requestForm, location: value })} disabled={requestBusy}>
+                <SelectTrigger id="request-location" className="w-full"><SelectValue placeholder="Selecciona una zona" /></SelectTrigger>
+                <SelectContent>{requestService.provider.zones.map((item) => <SelectItem value={item} key={item}>{item}</SelectItem>)}</SelectContent>
+              </Select>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="request-directions">Indicaciones privadas (opcional)</Label>
+            <Textarea id="request-directions" maxLength={300} rows={3} placeholder="Dirección exacta o indicaciones para llegar." value={requestForm.directions} onChange={(event) => setRequestForm({ ...requestForm, directions: event.target.value })} disabled={requestBusy} />
+            <p className="text-xs text-muted-foreground">El proveedor podrá verlas solo después de que aceptes su propuesta.</p>
           </div>
           {requestError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{requestError}</p>}
           <DialogFooter className="border-t pt-4">

@@ -97,14 +97,14 @@ function validateProfile(payload) {
   const zones = []
   for (const item of payload.zones) {
     const zone = cleanText(item, 40, 'Cada zona').replace(/\s+/g, ' ')
-    if (zone && !zones.some((existing) => existing.toLowerCase() === zone.toLowerCase())) zones.push(zone)
+    if (zone && !zones.some((existing) => existing.toLowerCase() === zone.toLowerCase())) zones.push(protectPublicText(zone))
   }
   if (!zones.length) throw new ApiError(400, 'Agrega al menos una zona de atención.')
   if (zones.length > 10) throw new ApiError(400, 'Puedes agregar hasta 10 zonas.')
   const email = cleanText(payload.email, 120, 'El correo electrónico')
   if (email && !/^\S+@\S+\.\S+$/.test(email)) throw new ApiError(400, 'El correo electrónico no es válido.')
   return {
-    name,
+    name: protectPublicText(name),
     headline: protectPublicText(cleanText(payload.headline, 80, 'La especialidad')),
     about: protectPublicText(cleanText(payload.about, 600, 'La descripción personal')),
     experienceYears: years,
@@ -148,7 +148,7 @@ function validateClientProfile(payload) {
   if (!/^[+\d\s-]+$/.test(phone) || phone.replace(/\D/g, '').length < 8) throw new ApiError(400, 'Escribe un teléfono válido de al menos 8 dígitos.')
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ApiError(400, 'Escribe un correo válido.')
   if (address.length < 5) throw new ApiError(400, 'Escribe una dirección o punto de referencia.')
-  return { name, phone, email, address }
+  return { name: protectPublicText(name), phone, email, address }
 }
 
 const chronological = (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
@@ -163,19 +163,20 @@ function requiredText(value, min, max, label) {
 
 // Teléfonos de 8 dígitos (con o sin separador), con prefijo opcional, o en pares; correos y enlaces.
 // No bloquea montos como "1 500 000".
-const contactPattern = /[\w.+-]+@[\w.-]+\.[a-z]{2,}|https?:\/\/|www\.|\+?\d{3}[\s-]?\d{4}[\s-]?\d{4}|\d{4}[\s-]?\d{4}|\d{2}[\s-]\d{2}[\s-]\d{2}[\s-]\d{2}/i
+const contactPattern = /[\w.+-]+@[\w.-]+\.[a-z]{2,}|https?:\/\/|www\.|\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|net|org|co|cr|io|me)\b|\+?\d{3}[\s-]?\d{4}[\s-]?\d{4}|\d{4}[\s-]?\d{4}|\d{2}[\s-]\d{2}[\s-]\d{2}[\s-]\d{2}/i
+const privateLocationPattern = /\b(?:calle|avenida|av\.?|casa|apartamento|apto\.?|lote|edificio)\s*(?:(?:n[uú]mero|n[º°.]?|#)\s*)?\d{1,5}\b/i
 
 function protectOpenMessage(text) {
-  if (contactPattern.test(text)) {
-    throw new ApiError(400, 'No incluyas teléfonos, correos ni enlaces antes de aceptar la solicitud.')
+  if (contactPattern.test(text) || privateLocationPattern.test(text)) {
+    throw new ApiError(400, 'No incluyas teléfonos, correos, enlaces ni direcciones exactas antes de aceptar la solicitud. Usa el campo de indicaciones privadas.')
   }
   return text
 }
 
 // Para textos que ve cualquier cliente (perfil y publicaciones).
 function protectPublicText(text) {
-  if (contactPattern.test(text)) {
-    throw new ApiError(400, 'No incluyas teléfonos, correos ni enlaces en textos públicos. Usa los campos de contacto privados.')
+  if (contactPattern.test(text) || privateLocationPattern.test(text)) {
+    throw new ApiError(400, 'No incluyas teléfonos, correos, enlaces ni direcciones exactas en textos públicos. Usa los campos privados.')
   }
   return text
 }
@@ -199,13 +200,14 @@ function requestView(item, database, role) {
     const provider = findProfile(database, item.providerId)
     return {
       ...base,
-      providerVerified: isVerified(provider),
+      providerVerified: isVerified(provider), directions: item.directions || '',
       providerContact: contactAllowed(item.status) ? { phone: provider.phone, email: provider.email } : null,
     }
   }
   const client = findClientProfile(database, item.clientId)
   return {
     ...base, clientName: client.name,
+    ...(contactAllowed(item.status) ? { directions: item.directions || '' } : {}),
     clientContact: contactAllowed(item.status)
       ? { phone: client.phone, email: client.email, address: client.address }
       : null,
@@ -286,11 +288,9 @@ function financeView(item) {
   }
 }
 
-// ---- Alcance 8: verificación, reportes y protección de datos (simulados) ----
-// Los criterios de verificación son una propuesta: se confirmarán con el cliente.
+// Verificación, reportes y protección de datos.
 const verificationRetryStates = ['Sin verificar', 'Rechazado']
 const reportCategories = ['Conducta inapropiada', 'Incumplimiento del servicio', 'Cobro o pago irregular', 'Datos personales o contacto externo', 'Perfil o publicación falsa', 'Otra anomalía']
-const reportFlow = ['Recibido', 'En revisión', 'Resuelto']
 
 const verificationOf = (profile) => ({ status: 'Sin verificar', requestedAt: null, reviewedAt: null, note: '', ...(profile.verification || {}) })
 const isVerified = (profile) => verificationOf(profile).status === 'Verificado'
@@ -495,14 +495,19 @@ export async function jsonApi(request, response, next) {
           throw new ApiError(404, 'El proveedor no está disponible.')
         }
         const need = protectOpenMessage(requiredText(payload.need, 10, 1000, 'La descripción del trabajo'))
-        const location = protectOpenMessage(requiredText(payload.location, 3, 120, 'La zona general'))
+        const location = requiredText(payload.location, 3, 120, 'La zona general')
+        const providerProfile = findProfile(currentDatabase, service.providerId)
+        if (!(providerProfile.zones ?? []).some((zone) => fold(zone) === fold(location))) {
+          throw new ApiError(400, 'Selecciona una zona de atención del proveedor.')
+        }
+        const directions = cleanText(payload.directions, 300, 'Las indicaciones privadas')
         if (!requestUrgencies.includes(payload.urgency)) throw new ApiError(400, 'Selecciona una urgencia válida.')
         const at = new Date().toISOString()
         const item = {
           id: randomUUID(), clientId: user.id, providerId: service.providerId,
           serviceId: service.id, serviceTitle: service.title,
-          providerName: findProfile(currentDatabase, service.providerId).name,
-          need, urgency: payload.urgency, location, createdAt: at, updatedAt: at,
+          providerName: providerProfile.name,
+          need, urgency: payload.urgency, location, directions, createdAt: at, updatedAt: at,
           status: 'Pendiente', history: [{ status: 'Pendiente', at, actor: 'Cliente', action: 'created' }],
         }
         currentDatabase.requests.unshift(item)
@@ -669,15 +674,76 @@ export async function jsonApi(request, response, next) {
           if (!verificationRetryStates.includes(state.status)) throw new ApiError(409, 'Tu verificación ya está en curso o completada.')
           if (!verificationChecks(current).every((check) => check.met)) throw new ApiError(400, 'Completa los datos requeridos de tu perfil antes de solicitar la verificación.')
           current.verification = { status: 'En revisión', requestedAt: at, reviewedAt: null, note: '' }
-        } else if (payload?.action === 'simulate-approve' && state.status === 'En revisión') {
-          current.verification = { ...state, status: 'Verificado', reviewedAt: at, note: '' }
-        } else if (payload?.action === 'simulate-reject' && state.status === 'En revisión') {
-          const note = cleanText(payload.note, 200, 'La observación') || 'Revisión simulada: faltan datos legibles en el documento.'
-          current.verification = { ...state, status: 'Rechazado', reviewedAt: at, note }
         } else throw new ApiError(409, 'Esta acción no corresponde al estado actual de la verificación.')
         return verificationView(current)
       })
       return respond(response, 200, view)
+    }
+
+    if (pathname === '/api/admin/verifications' && request.method === 'GET') {
+      requireRole(user, 'Administrador')
+      const verifications = database.profiles.map((profile) => ({
+        providerId: profile.providerId, name: profile.name,
+        legalId: profile.legalId || '', documentReference: profile.verificationDocuments || '',
+        email: profile.email || '', phone: profile.phone || '',
+        experience: profile.experience || '', zones: profile.zones || [],
+        ...verificationView(profile),
+      })).sort((a, b) => Number(b.status === 'En revisión') - Number(a.status === 'En revisión') || a.name.localeCompare(b.name, 'es'))
+      return respond(response, 200, { verifications })
+    }
+
+    const verificationMatch = pathname.match(/^\/api\/admin\/verifications\/([a-zA-Z0-9-]+)$/)
+    if (verificationMatch && request.method === 'PATCH') {
+      requireRole(user, 'Administrador')
+      const payload = await readBody(request)
+      const updated = await mutateDatabase((currentDatabase) => {
+        const profile = currentDatabase.profiles.find((item) => item.providerId === verificationMatch[1])
+        if (!profile) throw new ApiError(404, 'Proveedor no encontrado.')
+        if (verificationOf(profile).status !== 'En revisión') throw new ApiError(409, 'Este perfil no está pendiente de revisión.')
+        if (!['approve', 'reject'].includes(payload?.action)) throw new ApiError(400, 'Acción de revisión no válida.')
+        if (payload.action === 'approve' && !verificationChecks(profile).every((check) => check.met)) {
+          throw new ApiError(409, 'El perfil ya no cumple todos los criterios de verificación.')
+        }
+        const note = payload.action === 'reject'
+          ? requiredText(payload.note, 5, 200, 'El motivo del rechazo')
+          : cleanText(payload.note, 200, 'La observación')
+        const at = new Date().toISOString()
+        profile.verification = {
+          ...verificationOf(profile), status: payload.action === 'approve' ? 'Verificado' : 'Rechazado',
+          reviewedAt: at, reviewedBy: user.id, note,
+        }
+        return { providerId: profile.providerId, ...verificationView(profile) }
+      })
+      return respond(response, 200, { verification: updated })
+    }
+
+    if (pathname === '/api/admin/reports' && request.method === 'GET') {
+      requireRole(user, 'Administrador')
+      const reports = (database.reports ?? []).slice().sort(chronological).map((report) => ({
+        ...reportView(report), reporterName: database.users.find((item) => item.id === report.reporterId)?.name || 'Usuario',
+        reporterRole: report.reporterRole,
+      }))
+      return respond(response, 200, { reports })
+    }
+
+    const adminReportMatch = pathname.match(/^\/api\/admin\/reports\/([a-zA-Z0-9-]+)$/)
+    if (adminReportMatch && request.method === 'PATCH') {
+      requireRole(user, 'Administrador')
+      const payload = await readBody(request)
+      const updated = await mutateDatabase((currentDatabase) => {
+        const report = (currentDatabase.reports ?? []).find((item) => item.id === adminReportMatch[1])
+        if (!report) throw new ApiError(404, 'Reporte no encontrado.')
+        const next = payload?.action === 'review' && report.status === 'Recibido' ? 'En revisión'
+          : payload?.action === 'resolve' && report.status === 'En revisión' ? 'Resuelto' : null
+        if (!next) throw new ApiError(409, 'Esta acción no corresponde al estado actual del reporte.')
+        const note = requiredText(payload.note, 5, 500, 'La respuesta del equipo')
+        const at = new Date().toISOString()
+        report.status = next
+        report.updatedAt = at
+        report.history.push({ status: next, at, note, reviewedBy: user.id })
+        return { ...reportView(report), reporterName: currentDatabase.users.find((item) => item.id === report.reporterId)?.name || 'Usuario', reporterRole: report.reporterRole }
+      })
+      return respond(response, 200, { report: updated })
     }
 
     if (pathname === '/api/reports' && request.method === 'GET') {
@@ -712,29 +778,12 @@ export async function jsonApi(request, response, next) {
         const report = {
           id: randomUUID(), reporterId: user.id, reporterRole: user.role, category: payload.category, description,
           targetName, requestId, requestTitle, status: 'Recibido', createdAt: at, updatedAt: at,
-          history: [{ status: 'Recibido', at, note: 'Reporte recibido por el equipo de Hogar+ (simulado).' }],
+          history: [{ status: 'Recibido', at, note: 'Reporte enviado al equipo de Hogar+.' }],
         }
         currentDatabase.reports.unshift(report)
         return report
       })
       return respond(response, 201, { report: reportView(created) })
-    }
-
-    const reportMatch = pathname.match(/^\/api\/reports\/([a-zA-Z0-9-]+)$/)
-    if (reportMatch && request.method === 'PATCH') {
-      const payload = await readBody(request)
-      const updated = await mutateDatabase((currentDatabase) => {
-        const report = (currentDatabase.reports ?? []).find((item) => item.id === reportMatch[1] && item.reporterId === user.id)
-        if (!report) throw new ApiError(404, 'Reporte no encontrado.')
-        const next = reportFlow[reportFlow.indexOf(report.status) + 1]
-        if (payload?.action !== 'simulate-advance' || !next) throw new ApiError(409, 'Esta acción no corresponde al estado actual del reporte.')
-        const at = new Date().toISOString()
-        report.status = next
-        report.updatedAt = at
-        report.history.push({ status: next, at, note: next === 'En revisión' ? 'El equipo de Hogar+ está revisando el caso (simulado).' : 'Caso resuelto. Gracias por ayudarnos a mantener la comunidad segura (simulado).' })
-        return report
-      })
-      return respond(response, 200, { report: reportView(updated) })
     }
 
     if (pathname === '/api/services' && request.method === 'POST') {

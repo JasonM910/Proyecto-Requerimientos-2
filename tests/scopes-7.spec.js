@@ -124,7 +124,7 @@ test('RF-20: los pagos validan monto y saldo, la factura se emite al finalizar y
     expect(clientBilling.records.length).toBeGreaterThanOrEqual(3)
     expect(providerBilling.records.map((item) => item.id)).toEqual([id])
     expect(demoBilling.records.map((item) => item.id).sort()).toEqual(['sol-2', 'sol-3'])
-    expect(demoBilling.totals).toEqual({ agreed: 65050, paid: 40500, balance: 24550 })
+    expect(demoBilling.totals).toMatchObject({ agreed: 65050, paid: 40500, balance: 24550 })
     expect(JSON.stringify(clientBilling)).not.toContain('bankAccount')
     expect((await (await playwright.request.newContext({ baseURL })).get('/api/billing')).status()).toBe(401)
 

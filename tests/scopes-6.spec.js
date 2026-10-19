@@ -46,7 +46,7 @@ test('RF-14 a RF-16: el cliente solicita, el proveedor aclara y cotiza, el clien
     await form.getByLabel('¿Qué trabajo necesitas?', { exact: false }).fill('Instalar luces nuevas en la sala y revisar el interruptor.')
     await form.getByRole('combobox', { name: /Urgencia/ }).click()
     await page.getByRole('option', { name: 'Urgente' }).click()
-    await form.getByLabel('Zona general', { exact: false }).fill('Quesada')
+    await expect(form.getByRole('combobox', { name: /Zona general/ })).toContainText('Quesada')
     await form.getByRole('button', { name: 'Enviar solicitud' }).click()
     await expect(page.getByRole('heading', { name: 'Mis solicitudes', level: 1 })).toBeVisible()
     const clientCard = page.locator('[data-slot="card"]').filter({ has: page.getByRole('heading', { name: 'Instalaciones eléctricas residenciales', exact: true }) })

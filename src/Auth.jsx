@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { ArrowRight, BriefcaseBusiness, LoaderCircle, Search, UserRound } from 'lucide-react'
+import { ArrowRight, BriefcaseBusiness, LoaderCircle, Search, ShieldCheck, UserRound } from 'lucide-react'
 import { motion } from 'motion/react'
 import Brand from './Brand.jsx'
 import { login } from './api.js'
@@ -14,6 +14,7 @@ const demos = [
   { label: 'Andrés Solís', identifier: 'andres@hogar.test', password: 'Proveedor2026!', icon: BriefcaseBusiness },
   { label: 'Marta Rojas', identifier: 'marta@hogar.test', password: 'Proveedor2026!', icon: BriefcaseBusiness },
   { label: 'Cliente', identifier: 'cliente@hogar.test', password: 'Cliente2026!', icon: UserRound },
+  { label: 'Equipo Hogar+', identifier: 'admin@hogar.test', password: 'Admin2026!', icon: ShieldCheck },
 ]
 
 const entrance = {

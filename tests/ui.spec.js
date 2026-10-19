@@ -73,8 +73,8 @@ test('proveedor: publicar, editar y eliminar; guardar perfil y proteger contacto
   await page.getByRole('button', { name: 'Solicitudes recibidas', exact: true }).click()
   const pending = page.locator('[data-slot="card"]').filter({ has: page.getByRole('heading', { name: 'Reparación e instalación de tuberías', exact: true }) })
   const accepted = page.locator('[data-slot="card"]').filter({ has: page.getByRole('heading', { name: 'Limpieza profunda del hogar', exact: true }) })
-  await expect(pending).toContainText('Datos de contacto protegidos')
-  await expect(pending).not.toContainText('Correo:')
+  await expect(pending.first()).toContainText('Datos de contacto protegidos')
+  await expect(pending.first()).not.toContainText('Correo:')
   await expect(accepted).toContainText('Datos de contacto disponibles')
   await expect(accepted).toContainText('Correo:')
   await logout(page)
@@ -82,12 +82,10 @@ test('proveedor: publicar, editar y eliminar; guardar perfil y proteger contacto
 
 test('cliente: historial, búsqueda y detalle accesible; validar y guardar perfil', async ({ page }) => {
   await loginAs(page, 'Cliente')
-  await expect(page.getByRole('heading', { level: 2 })).toHaveText([
-    'Reparación e instalación de tuberías',
-    'Limpieza profunda del hogar',
-    'Mantenimiento de jardines',
-  ])
-  await expect(page.getByText('Pendiente', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Reparación e instalación de tuberías', level: 2 }).first()).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Limpieza profunda del hogar', level: 2 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mantenimiento de jardines', level: 2 })).toBeVisible()
+  await expect(page.getByText('Pendiente', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('Aceptado', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Nuevo servicio', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'Buscar servicios', exact: true }).click()

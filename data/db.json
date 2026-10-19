@@ -44,6 +44,15 @@
       "email": "cliente@hogar.test",
       "username": "cliente.demo",
       "passwordHash": "scrypt:daa0cd8000591a71ebb2ad79a02564fa:2df4a6240e04665874673689572629da481fe811efea101bb9a7e9d3818f23b15fe2cd6626981f5fc58ff6e6eb2b757f607ef71f01b747888448338c24d62c6f"
+    },
+    {
+      "id": "admin-demo",
+      "name": "Equipo Hogar+",
+      "initials": "EH",
+      "role": "Administrador",
+      "email": "admin@hogar.test",
+      "username": "admin.demo",
+      "passwordHash": "scrypt:4acdf5660d8f845d2fc8cce9b900bbff:fd0e2dd09f588c5d7215fcc37c46c9dad2b5a49b8cbc35cd4f8d4fb26c0e4f440748a94421d5b49994cf7d9c93189aa6b5a07470c6ac54d77e919893f98bef10"
     }
   ],
   "categories": [

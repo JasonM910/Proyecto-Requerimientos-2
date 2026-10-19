@@ -21,18 +21,24 @@ const clientNavigation = [
   { id: 'seguridad', label: 'Seguridad y confianza', mobileLabel: 'Seguridad', icon: ShieldCheck },
 ]
 
+const adminNavigation = [
+  { id: 'reportes', label: 'Reportes recibidos', mobileLabel: 'Reportes', icon: ClipboardList },
+  { id: 'verificaciones', label: 'Verificar proveedores', mobileLabel: 'Verificar', icon: ShieldCheck },
+]
+
 function AppShell({ user, view, onViewChange, onLogout, alerts = 0, children }) {
   const provider = user?.role === 'Proveedor'
-  const navigation = provider ? providerNavigation : clientNavigation
+  const admin = user?.role === 'Administrador'
+  const navigation = admin ? adminNavigation : provider ? providerNavigation : clientNavigation
   const title = navigation.find((item) => item.id === view)?.label || 'Mi espacio'
-  const subtitle = provider ? 'ESPACIO DEL PROVEEDOR' : 'ESPACIO DEL CLIENTE'
+  const subtitle = admin ? 'EQUIPO HOGAR+' : provider ? 'ESPACIO DEL PROVEEDOR' : 'ESPACIO DEL CLIENTE'
 
   return (
     <div className="flex min-h-dvh bg-background">
       <aside className="sticky top-0 hidden h-dvh w-[254px] shrink-0 flex-col overflow-y-auto border-r border-border bg-card px-4 pb-5 pt-8 lg:flex">
         <Brand subtitle={subtitle} className="px-3" />
         <p className="mb-3 mt-14 px-3 text-[10px] font-bold tracking-[0.16em] text-muted-foreground">MENÚ PRINCIPAL</p>
-        <nav className="grid gap-1.5" aria-label={provider ? 'Navegación del proveedor' : 'Navegación del cliente'}>
+        <nav className="grid gap-1.5" aria-label={admin ? 'Navegación del equipo' : provider ? 'Navegación del proveedor' : 'Navegación del cliente'}>
           {navigation.map(({ id, label, icon: Icon }) => (
             <Button key={id} variant="ghost" className={cn('relative h-11 w-full justify-start gap-3 rounded-xl px-3 text-[13px] font-semibold text-muted-foreground hover:bg-accent/60 hover:text-primary', view === id && 'bg-accent text-primary hover:bg-accent before:absolute before:-left-4 before:h-6 before:w-0.5 before:rounded-r-full before:bg-primary')} aria-label={label} aria-current={view === id ? 'page' : undefined} onClick={() => onViewChange(id)}>
               <Icon className="size-[18px]" aria-hidden="true" />{label}{id === 'solicitudes' && alerts > 0 && <Badge aria-hidden="true" variant="secondary" className="ml-auto rounded-full bg-apricot px-2 text-apricot-foreground">{alerts}</Badge>}
@@ -61,7 +67,7 @@ function AppShell({ user, view, onViewChange, onLogout, alerts = 0, children }) 
             <Badge variant="outline" className="hidden gap-2 rounded-full bg-secondary px-3 py-2 text-[10px] font-semibold text-muted-foreground sm:inline-flex"><span className="size-1.5 rounded-full bg-brand-accent" />Servicios del hogar</Badge>
             <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground lg:hidden" onClick={onLogout} aria-label="Cerrar sesión" title="Cerrar sesión"><LogOut className="size-[18px]" aria-hidden="true" /></Button>
           </div>
-          <nav className="grid grid-cols-5 gap-1 px-3 pb-3 lg:hidden" aria-label="Navegación principal móvil">
+          <nav className={cn('grid gap-1 px-3 pb-3 lg:hidden', admin ? 'grid-cols-2' : 'grid-cols-5')} aria-label="Navegación principal móvil">
             {navigation.map(({ id, mobileLabel, label, icon: Icon }) => (
               <Button key={id} variant="ghost" className={cn('h-14 flex-col gap-1 rounded-xl px-1 text-[11px] text-muted-foreground sm:h-10 sm:flex-row sm:gap-2 sm:text-xs', view === id && 'bg-accent text-primary hover:bg-accent')} aria-label={label} aria-current={view === id ? 'page' : undefined} onClick={() => onViewChange(id)}><Icon className="size-4" aria-hidden="true" />{mobileLabel}{id === 'solicitudes' && alerts > 0 && <span aria-hidden="true" className="rounded-full bg-apricot px-1.5 text-[10px] text-apricot-foreground">{alerts}</span>}</Button>
             ))}

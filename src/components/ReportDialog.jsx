@@ -45,7 +45,7 @@ export function ReportDialog({ open, onOpenChange, target, targetLabel, onCreate
       <DialogHeader className="pr-6 text-left">
         <p className="text-[10px] font-semibold tracking-[0.16em] text-primary">SEGURIDAD Y CONFIANZA</p>
         <DialogTitle className="font-heading text-2xl text-brand">Reportar un problema</DialogTitle>
-        <DialogDescription>{targetLabel ? `Sobre: ${targetLabel}. ` : ''}Cuéntanos qué ocurrió. El equipo de Hogar+ revisará el caso (simulado en el prototipo).</DialogDescription>
+        <DialogDescription>{targetLabel ? `Sobre: ${targetLabel}. ` : ''}Cuéntanos qué ocurrió. El equipo de Hogar+ revisará el caso.</DialogDescription>
       </DialogHeader>
       <form onSubmit={submit} className="space-y-5" aria-busy={busy}>
         <div className="space-y-2">

@@ -33,7 +33,7 @@ function Invoice({ record, isClient, onClose }) {
     <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
       <DialogHeader>
         <DialogTitle>Factura {record.invoice.number}</DialogTitle>
-        <DialogDescription>Emitida el {dateFormatter.format(new Date(record.invoice.issuedAt))} · Comprobante simulado del prototipo, sin validez tributaria.</DialogDescription>
+        <DialogDescription>Emitida el {dateFormatter.format(new Date(record.invoice.issuedAt))} · Comprobante de demostración, sin validez tributaria.</DialogDescription>
       </DialogHeader>
       <div className="space-y-4 text-sm">
         <div className="grid gap-2 rounded-xl bg-secondary/70 p-4 text-xs sm:grid-cols-2">
@@ -55,7 +55,7 @@ function PaymentForm({ record, busy, onCancel, onSubmit }) {
   const [method, setMethod] = useState(paymentMethods[0])
   const [amount, setAmount] = useState(String(record.balance))
   return <form className="mt-4 space-y-4 rounded-xl border border-border bg-background p-4" aria-label="Registrar pago" onSubmit={(event) => { event.preventDefault(); onSubmit({ method, amount: Number(amount) }) }}>
-    <p className="text-xs leading-relaxed text-muted-foreground">Los pagos son una simulación: el prototipo no procesa dinero ni guarda datos de tarjetas.</p>
+    <p className="text-xs leading-relaxed text-muted-foreground">Los pagos son registros de demostración: no se procesa dinero ni se guardan datos de tarjetas.</p>
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-1.5"><Label htmlFor={`method-${record.id}`}>Método de pago</Label><select id={`method-${record.id}`} className={selectClass} value={method} onChange={(event) => setMethod(event.target.value)} disabled={busy}>{paymentMethods.map((item) => <option key={item}>{item}</option>)}</select></div>
       <div className="space-y-1.5"><Label htmlFor={`pay-${record.id}`}>Monto a pagar (₡)</Label><Input id={`pay-${record.id}`} type="number" inputMode="decimal" required min="0.01" max={record.balance} step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} disabled={busy} /></div>

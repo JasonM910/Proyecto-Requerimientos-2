@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AnimatedItem, EmptyState, Page, PageFooter, PageHeader } from '@/components/page'
 import { ReportDialog } from '@/components/ReportDialog'
-import { getReports, getVerification, updateReport, updateVerification } from './api.js'
+import { getReports, getVerification, updateVerification } from './api.js'
 
 const dateFormatter = new Intl.DateTimeFormat('es-CR', { day: 'numeric', month: 'long', year: 'numeric' })
 const statusStyles = {
@@ -21,11 +21,6 @@ function StatusBadge({ status }) {
   return <Badge variant="secondary" className={`gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyles[status] || statusStyles['Sin verificar']}`}><span className="size-1.5 rounded-full bg-current" aria-hidden="true" />{status}</Badge>
 }
 
-function SimulatedTag() {
-  return <Badge variant="outline" className="rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground">SIMULADO</Badge>
-}
-
-// Criterios de verificación propuestos: se confirmarán con el cliente. La revisión del equipo se simula en el prototipo.
 function VerificationPanel({ onNotice }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
@@ -33,8 +28,14 @@ function VerificationPanel({ onNotice }) {
 
   useEffect(() => {
     let active = true
-    getVerification().then((result) => { if (active) setData(result) }).catch((problem) => { if (active) setError(problem.message) })
-    return () => { active = false }
+    const refresh = () => {
+      if (document.visibilityState === 'hidden') return
+      getVerification().then((result) => { if (active) { setData(result); setError('') } }).catch((problem) => { if (active) setError(problem.message) })
+    }
+    refresh()
+    const timer = setInterval(refresh, 15_000)
+    document.addEventListener('visibilitychange', refresh)
+    return () => { active = false; clearInterval(timer); document.removeEventListener('visibilitychange', refresh) }
   }, [])
 
   async function act(action, message) {
@@ -73,12 +74,8 @@ function VerificationPanel({ onNotice }) {
       {error && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
       {['Sin verificar', 'Rechazado'].includes(data.status) && <Button disabled={busy || !data.canRequest} onClick={() => act('request', 'Verificación solicitada')}><ShieldCheck className="size-4" aria-hidden="true" />{data.status === 'Rechazado' ? 'Solicitar nueva verificación' : 'Solicitar verificación'}</Button>}
       {data.status === 'En revisión' && <div className="space-y-3 rounded-xl border border-dashed border-primary/30 bg-accent/40 p-4">
-        <p className="flex items-center gap-2 text-sm font-semibold">Revisión del equipo de Hogar+ <SimulatedTag /></p>
-        <p className="text-xs leading-relaxed text-muted-foreground">En una versión real, el equipo revisaría tus documentos. En el prototipo puedes simular el resultado.</p>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" disabled={busy} onClick={() => act('simulate-approve', 'Verificación aprobada (simulada)')}>Simular aprobación</Button>
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => act('simulate-reject', 'Verificación rechazada (simulada)')}>Simular rechazo</Button>
-        </div>
+        <p className="flex items-center gap-2 text-sm font-semibold">Revisión del equipo de Hogar+</p>
+        <p className="text-xs leading-relaxed text-muted-foreground">Tu solicitud está pendiente. El equipo revisará los datos de identidad y te comunicará el resultado aquí.</p>
       </div>}
     </CardContent>
   </Card>
@@ -88,26 +85,18 @@ function ReportsPanel({ role, onNotice }) {
   const [reports, setReports] = useState(null)
   const [error, setError] = useState('')
   const [open, setOpen] = useState(false)
-  const [busyId, setBusyId] = useState(null)
 
   useEffect(() => {
     let active = true
-    getReports().then((data) => { if (active) setReports(data.reports) }).catch((problem) => { if (active) setError(problem.message) })
-    return () => { active = false }
-  }, [])
-
-  async function advance(report) {
-    setBusyId(report.id)
-    setError('')
-    try {
-      const { report: updated } = await updateReport(report.id, { action: 'simulate-advance' })
-      setReports((current) => current.map((item) => item.id === updated.id ? updated : item))
-    } catch (problem) {
-      setError(problem.message)
-    } finally {
-      setBusyId(null)
+    const refresh = () => {
+      if (document.visibilityState === 'hidden') return
+      getReports().then((data) => { if (active) { setReports(data.reports); setError('') } }).catch((problem) => { if (active) setError(problem.message) })
     }
-  }
+    refresh()
+    const timer = setInterval(refresh, 15_000)
+    document.addEventListener('visibilitychange', refresh)
+    return () => { active = false; clearInterval(timer); document.removeEventListener('visibilitychange', refresh) }
+  }, [])
 
   return <Card className="rounded-2xl py-0 shadow-sm" aria-labelledby="reports-title">
     <CardHeader className="px-6 pt-6">
@@ -127,7 +116,7 @@ function ReportsPanel({ role, onNotice }) {
               <p className="text-xs text-muted-foreground">{dateFormatter.format(new Date(report.createdAt))}{report.targetName && ` · Sobre ${report.targetName}`}{report.requestTitle && ` · ${report.requestTitle}`}</p>
               <p className="text-sm leading-relaxed whitespace-pre-line break-words text-muted-foreground">{report.description}</p>
               <ol className="space-y-1.5 border-l-2 border-primary/15 pl-4 text-xs text-muted-foreground">{report.history.map((event, index) => <li key={index}><strong className="text-foreground">{event.status}</strong> · {dateFormatter.format(new Date(event.at))}<span className="block">{event.note}</span></li>)}</ol>
-              {report.status !== 'Resuelto' && <div className="flex items-center gap-2"><Button size="sm" variant="outline" disabled={busyId === report.id} onClick={() => advance(report)}>Simular avance del caso</Button><SimulatedTag /></div>}
+              {report.status !== 'Resuelto' && <p className="text-xs text-muted-foreground">El equipo de Hogar+ está dando seguimiento a este reporte.</p>}
             </article>
           </AnimatedItem>)}
     </CardContent>
@@ -140,13 +129,13 @@ function PrivacyPanel({ role }) {
   const groups = provider
     ? [
       { icon: ShieldCheck, title: 'Visible para los clientes', items: ['Nombre y especialidad', 'Descripción y experiencia', 'Zonas de atención', 'Insignia de verificación'] },
-      { icon: EyeOff, title: 'Solo tú lo ves', items: ['Dirección', 'Identificación legal y documentos', 'Cuenta bancaria', 'Correo y teléfono: solo se comparten con un cliente cuando acepta tu propuesta'] },
+      { icon: EyeOff, title: 'Datos privados', items: ['Dirección y cuenta bancaria: solo tú', 'Identificación legal y referencia de documentos: tú y el equipo de revisión', 'Correo y teléfono: se comparten con un cliente cuando acepta tu propuesta'] },
       { icon: LockKeyhole, title: 'Datos del cliente', items: ['Su contacto se muestra solo cuando acepta tu propuesta', 'Los mensajes previos no pueden incluir teléfonos, correos ni enlaces'] },
     ]
     : [
       { icon: ShieldCheck, title: 'Visible para el proveedor desde el inicio', items: ['Tu nombre', 'Descripción del trabajo, urgencia y zona general'] },
-      { icon: LockKeyhole, title: 'Visible solo tras aceptar una propuesta', items: ['Teléfono, correo y dirección'] },
-      { icon: EyeOff, title: 'Nunca se comparte', items: ['Tu contraseña (se guarda cifrada)', 'Tus reportes (son confidenciales)'] },
+      { icon: LockKeyhole, title: 'Visible solo tras aceptar una propuesta', items: ['Teléfono, correo, dirección e indicaciones privadas'] },
+      { icon: EyeOff, title: 'Acceso restringido', items: ['Tu contraseña no se muestra', 'Tus reportes solo los ven tú y el equipo de revisión'] },
     ]
   return <Card className="rounded-2xl py-0 shadow-sm" aria-labelledby="privacy-title">
     <CardHeader className="px-6 pt-6">
@@ -164,7 +153,7 @@ function PrivacyPanel({ role }) {
 
 function Security({ role, onNotice }) {
   return <Page>
-    <PageHeader eyebrow="SEGURIDAD Y CONFIANZA" title="Seguridad y confianza" description="Verificación de proveedores, reportes de incidentes y protección de datos. Los mecanismos se representan de forma simulada en el prototipo." />
+    <PageHeader eyebrow="SEGURIDAD Y CONFIANZA" title="Seguridad y confianza" description="Verificación de proveedores, reportes de incidentes y protección de datos." />
     <div className="space-y-6">
       {role === 'Proveedor' && <VerificationPanel onNotice={onNotice} />}
       <ReportsPanel role={role} onNotice={onNotice} />
