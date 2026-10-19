@@ -13,6 +13,7 @@ import { categoryStyle } from '@/lib/category-styles'
 import { groupCategories } from '@/lib/categories'
 import { ReportDialog } from '@/components/ReportDialog'
 import { VerifiedBadge } from '@/components/Trust'
+import { ImageGallery, ImagePicker } from '@/components/ImagePicker'
 import { createRequest, searchServices } from './api.js'
 
 const initialsOf = (name) => name.split(' ').filter(Boolean).slice(0, 2).map((word) => word[0]).join('').toUpperCase() || '—'
@@ -41,7 +42,7 @@ function Search({ onRequestCreated, onNotice }) {
   const [detailId, setDetailId] = useState(null)
   const [requestService, setRequestService] = useState(null)
   const [reportProvider, setReportProvider] = useState(null)
-  const [requestForm, setRequestForm] = useState({ need: '', urgency: 'Flexible', location: '', directions: '' })
+  const [requestForm, setRequestForm] = useState({ need: '', urgency: 'Flexible', location: '', directions: '', images: [] })
   const [requestError, setRequestError] = useState('')
   const [requestBusy, setRequestBusy] = useState(false)
   const detailTrigger = useRef(null)
@@ -139,6 +140,7 @@ function Search({ onRequestCreated, onNotice }) {
               const style = styleOf(service.category)
               return <AnimatedItem className="min-w-0" key={service.id}>
                 <Card className="h-full gap-0 rounded-2xl py-0 shadow-none transition-[border-color,box-shadow] hover:border-primary/25 hover:shadow-md motion-reduce:transition-none">
+                  {service.images?.length > 0 && <img src={service.images[0].dataUrl} alt={`Muestra de ${service.title}`} className="aspect-[16/9] w-full object-cover" />}
                   <CardContent className="flex h-full flex-col p-5">
                     <div className="mb-5 flex items-center gap-3">
                       <span className={`flex size-11 shrink-0 items-center justify-center rounded-xl text-xl ${categoryStyle(style.color)}`} aria-hidden="true">{style.icon}</span>
@@ -179,6 +181,7 @@ function Search({ onRequestCreated, onNotice }) {
             <h3 className="font-heading text-sm font-bold">Descripción</h3>
             <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{detail.description}</p>
           </section>
+          <ImageGallery images={detail.images} label="Fotos del servicio" altPrefix="Foto del servicio" />
           <section className="space-y-4 rounded-xl border border-border bg-background p-4 sm:p-5" aria-label="Perfil público del proveedor">
             <div className="flex items-center gap-3">
               <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-primary" aria-hidden="true">{initialsOf(detail.provider.name)}</span>
@@ -190,7 +193,7 @@ function Search({ onRequestCreated, onNotice }) {
           </section>
           <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground"><LockKeyhole className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />Los datos de contacto del proveedor no se muestran en la búsqueda.</p>
         </div>
-        <DialogFooter className="border-t border-border pt-4"><Button variant="ghost" className="text-muted-foreground sm:mr-auto" onClick={() => { setReportProvider(detail); setDetailId(null) }}><Flag className="size-4" aria-hidden="true" />Reportar proveedor</Button><Button variant="outline" onClick={() => setDetailId(null)}>Cerrar</Button><Button onClick={() => { setRequestService(detail); setRequestForm({ need: '', urgency: 'Flexible', location: detail.provider.zones[0] || '', directions: '' }); setRequestError(''); setDetailId(null) }}><Send className="size-4" aria-hidden="true" />Solicitar servicio</Button></DialogFooter>
+        <DialogFooter className="border-t border-border pt-4"><Button variant="ghost" className="text-muted-foreground sm:mr-auto" onClick={() => { setReportProvider(detail); setDetailId(null) }}><Flag className="size-4" aria-hidden="true" />Reportar proveedor</Button><Button variant="outline" onClick={() => setDetailId(null)}>Cerrar</Button><Button onClick={() => { setRequestService(detail); setRequestForm({ need: '', urgency: 'Flexible', location: detail.provider.zones[0] || '', directions: '', images: [] }); setRequestError(''); setDetailId(null) }}><Send className="size-4" aria-hidden="true" />Solicitar servicio</Button></DialogFooter>
       </DialogContent>}
     </Dialog>
     <Dialog open={Boolean(requestService)} onOpenChange={(open) => { if (!open && !requestBusy) setRequestService(null) }}>
@@ -227,6 +230,7 @@ function Search({ onRequestCreated, onNotice }) {
             <Textarea id="request-directions" maxLength={300} rows={3} placeholder="Dirección exacta o indicaciones para llegar." value={requestForm.directions} onChange={(event) => setRequestForm({ ...requestForm, directions: event.target.value })} disabled={requestBusy} />
             <p className="text-xs text-muted-foreground">El proveedor podrá verlas solo después de que aceptes su propuesta.</p>
           </div>
+          <ImagePicker id="request-images" label="Fotos del problema o área del trabajo" images={requestForm.images} onChange={(images) => setRequestForm((current) => ({ ...current, images }))} disabled={requestBusy} hint="Hasta 3 imágenes JPG o PNG de 3 MB. El proveedor las verá al recibir tu solicitud; evita datos personales visibles en la foto." />
           {requestError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{requestError}</p>}
           <DialogFooter className="border-t pt-4">
             <Button type="button" variant="outline" onClick={() => setRequestService(null)} disabled={requestBusy}>Cancelar</Button>

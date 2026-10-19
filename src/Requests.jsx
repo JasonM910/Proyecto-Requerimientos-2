@@ -10,6 +10,7 @@ import { AnimatedItem, EmptyState, Page, PageFooter, PageHeader } from '@/compon
 import { QuoteBreakdown } from '@/components/finance'
 import { ReportDialog } from '@/components/ReportDialog'
 import { VerifiedBadge } from '@/components/Trust'
+import { ImageGallery } from '@/components/ImagePicker'
 import { moneyFormatter } from '@/lib/money'
 import QuoteForm from './QuoteForm.jsx'
 import { getClientRequests, getProviderRequests, updateClientRequest, updateProviderRequest } from './api.js'
@@ -108,6 +109,7 @@ function Requests({ role, refreshKey = 0, onUpdated, onNotice }) {
                   <h2 className="font-heading text-lg leading-snug font-bold text-brand">{item.serviceTitle}</h2>
                   <p className="mt-2 text-sm text-muted-foreground"><span className="font-medium text-foreground">{isClient ? 'Proveedor' : 'Cliente'}:</span> {isClient ? item.providerName : item.clientName}{isClient && item.providerVerified && <VerifiedBadge className="ml-2 align-middle" />}</p>
                   {item.need && <p className="mt-3 text-sm leading-relaxed whitespace-pre-line break-words text-muted-foreground"><span className="font-medium text-foreground">Necesidad:</span> {item.need}</p>}
+                  {item.images?.length > 0 && <div className="mt-4"><ImageGallery images={item.images} label="Fotos adjuntas a la solicitud" altPrefix="Foto de la solicitud" /></div>}
                   {(item.urgency || item.location) && <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">{item.urgency && <p><span className="font-medium text-foreground">Urgencia:</span> {item.urgency}</p>}{item.location && <p><span className="font-medium text-foreground">Zona general:</span> {item.location}</p>}</div>}
                   {item.directions && <p className="mt-3 text-xs leading-relaxed whitespace-pre-wrap break-words text-muted-foreground"><span className="font-medium text-foreground">Indicaciones privadas:</span> {item.directions}{isClient && !item.providerContact && <span className="block">Se compartirán cuando aceptes la propuesta.</span>}</p>}
                   {item.estimate != null && <p className="mt-3 text-sm font-semibold text-primary">{item.agreement ? 'Monto acordado' : 'Monto estimado'}: {moneyFormatter.format(item.agreement?.total ?? item.estimate)}</p>}

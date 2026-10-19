@@ -46,9 +46,12 @@ Referencias: [Tailwind con Vite](https://tailwindcss.com/docs/installation/using
 npm run lint
 npm run build
 npm run test:e2e
+npm run test:capturas
 ```
 
 Las pruebas de navegador requieren Google Chrome instalado. Arrancan un servidor local en el puerto `4175` con una copia temporal del JSON, comprueban los tres roles, publicaciones, perfiles, solicitudes, privacidad, cotizaciones, reportes y la vista móvil, y eliminan los datos de prueba al terminar. Tu archivo `data/db.json` no se modifica durante las pruebas.
+
+La prueba de capturas guarda imágenes de los recorridos principales en `test-results/capturas/`. También se ejecuta con `npm run test:e2e`. Playwright borra `test-results/` al iniciar una nueva ejecución y guarda capturas adicionales de las pruebas que fallen.
 
 ### Publicación y búsqueda de servicios (alcances 4 y 5)
 
@@ -79,6 +82,10 @@ El proveedor desglosa mano de obra, materiales y otros conceptos; el cliente pue
 El proveedor solicita la verificación desde «Seguridad y confianza» cuando ha completado los datos requeridos. La cuenta «Equipo Hogar+» revisa la identificación y la referencia del documento, y aprueba o rechaza la solicitud. La insignia pública aparece solo mientras el perfil está verificado; un cambio en los datos de identidad la retira hasta una nueva revisión. La referencia del documento es texto de demostración; este flujo no permite subir archivos.
 
 Clientes y proveedores pueden enviar reportes generales o asociados a una solicitud; los clientes también pueden reportar un perfil. El equipo recibe los casos en su bandeja, registra su revisión y los resuelve. El autor ve el historial del caso en «Seguridad y confianza». `tests/scopes-8.spec.js` comprueba el acceso por rol, las decisiones y la privacidad del contacto y de las indicaciones de llegada.
+
+### Imágenes de muestra y evidencias (RF-24)
+
+El proveedor puede adjuntar hasta tres fotos JPG o PNG al crear o editar un servicio. Se muestran en su catálogo y en la búsqueda y detalle del cliente. El cliente puede adjuntar hasta tres fotos a una solicitud; ambas partes las ven en el seguimiento. Cada archivo puede pesar hasta 3 MB. Las imágenes se guardan como datos Base64 en `data/db.json`, por lo que esta solución está pensada para la demo y el archivo crecerá con cada foto. Las fotos de la solicitud son visibles para el proveedor desde que la recibe; el formulario recuerda evitar datos personales en ellas. `tests/rf-24.spec.js` comprueba carga, visualización, persistencia y validación de formatos.
 
 ## Datos
 

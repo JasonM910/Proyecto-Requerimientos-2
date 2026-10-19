@@ -9,6 +9,9 @@ const databasePath = process.env.HOGAR_DB_PATH
   : fileURLToPath(new URL('../data/db.json', import.meta.url))
 const demoUserId = 'proveedor-demo'
 const maxBodyBytes = 16_384
+const maxImageBytes = 3 * 1024 * 1024
+const maxImageBodyBytes = 13 * 1024 * 1024
+const maxImages = 3
 let mutationQueue = Promise.resolve()
 
 class ApiError extends Error {
@@ -53,18 +56,45 @@ function respond(response, status, data) {
   response.end(JSON.stringify(data))
 }
 
-async function readBody(request) {
+async function readBody(request, limit = maxBodyBytes) {
   const chunks = []
   let bytes = 0
   for await (const chunk of request) {
     bytes += chunk.length
-    if (bytes > maxBodyBytes) throw new ApiError(413, 'La solicitud es demasiado grande.')
+    if (bytes > limit) throw new ApiError(413, 'La solicitud es demasiado grande.')
     chunks.push(chunk)
   }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')) } catch { throw new ApiError(400, 'El contenido debe ser JSON válido.') }
 }
 
-function validateService(payload, database) {
+function validateImages(value, fallback = []) {
+  if (value === undefined) return fallback
+  if (!Array.isArray(value) || value.length > maxImages) throw new ApiError(400, `Puedes adjuntar hasta ${maxImages} imágenes.`)
+  return value.map((image) => {
+    if (!image || typeof image !== 'object' || Array.isArray(image)) throw new ApiError(400, 'La imagen no es válida.')
+    const name = cleanText(image.name, 100, 'El nombre de la imagen')
+    if (!name) throw new ApiError(400, 'La imagen debe tener un nombre.')
+    if (typeof image.dataUrl !== 'string') throw new ApiError(400, 'La imagen no es válida.')
+    const match = /^data:image\/(jpeg|png);base64,([A-Za-z0-9+/]+={0,2})$/.exec(image.dataUrl)
+    if (!match) throw new ApiError(400, 'Adjunta únicamente imágenes JPG o PNG.')
+    const bytes = Buffer.from(match[2], 'base64')
+    if (!bytes.length || bytes.length > maxImageBytes || bytes.toString('base64') !== match[2]) {
+      throw new ApiError(400, 'Cada imagen debe ser válida y pesar menos de 3 MB.')
+    }
+    const isPng = bytes.length >= 45
+      && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+      && bytes.toString('ascii', 12, 16) === 'IHDR'
+      && bytes.readUInt32BE(16) > 0 && bytes.readUInt32BE(20) > 0
+      && bytes.toString('ascii', bytes.length - 8, bytes.length - 4) === 'IEND'
+    const isJpeg = bytes.length >= 4 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff && bytes.at(-2) === 0xff && bytes.at(-1) === 0xd9
+    if ((match[1] === 'png' && !isPng) || (match[1] === 'jpeg' && !isJpeg)) {
+      throw new ApiError(400, 'El contenido de la imagen no coincide con su formato JPG o PNG.')
+    }
+    return { name, dataUrl: image.dataUrl }
+  })
+}
+
+function validateService(payload, database, existingImages = []) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new ApiError(400, 'Datos del servicio no válidos.')
   const title = typeof payload.title === 'string' ? payload.title.trim() : ''
   const description = typeof payload.description === 'string' ? payload.description.trim() : ''
@@ -72,7 +102,7 @@ function validateService(payload, database) {
   if (!title || title.length > 80) throw new ApiError(400, 'El título es obligatorio y debe tener como máximo 80 caracteres.')
   if (!description || description.length > 800) throw new ApiError(400, 'La descripción es obligatoria y debe tener como máximo 800 caracteres.')
   if (!database.categories.some((item) => item.name === category)) throw new ApiError(400, 'Selecciona una categoría válida.')
-  return { title: protectPublicText(title), description: protectPublicText(description), category }
+  return { title: protectPublicText(title), description: protectPublicText(description), category, images: validateImages(payload.images, existingImages) }
 }
 
 function cleanText(value, max, label) {
@@ -193,7 +223,7 @@ function requestView(item, database, role) {
     providerName: item.providerName, createdAt: item.createdAt,
     updatedAt: item.updatedAt || item.createdAt, status: item.status,
     need: item.need, urgency: item.urgency || null, location: item.location || null,
-    estimate: item.estimate ?? null, history: requestHistory(item),
+    estimate: item.estimate ?? null, history: requestHistory(item), images: item.images ?? [],
     ...financeView(item),
   }
   if (role === 'Cliente') {
@@ -361,6 +391,7 @@ function searchServices(database, params) {
         title: service.title,
         category: service.category,
         description: service.description,
+        images: service.images ?? [],
         updatedAt: service.updatedAt,
         provider: { id: profile.providerId, name: profile.name, headline: profile.headline, about: profile.about, experienceYears: profile.experienceYears, experience: profile.experience, zones: profile.zones ?? [], verified: isVerified(profile) },
       },
@@ -487,7 +518,7 @@ export async function jsonApi(request, response, next) {
 
     if (pathname === '/api/client/requests' && request.method === 'POST') {
       requireRole(user, 'Cliente')
-      const payload = await readBody(request)
+      const payload = await readBody(request, maxImageBodyBytes)
       const created = await mutateDatabase((currentDatabase) => {
         const service = currentDatabase.services.find((item) => item.id === payload?.serviceId)
         if (!service) throw new ApiError(404, 'El servicio ya no está disponible.')
@@ -501,13 +532,14 @@ export async function jsonApi(request, response, next) {
           throw new ApiError(400, 'Selecciona una zona de atención del proveedor.')
         }
         const directions = cleanText(payload.directions, 300, 'Las indicaciones privadas')
+        const images = validateImages(payload.images)
         if (!requestUrgencies.includes(payload.urgency)) throw new ApiError(400, 'Selecciona una urgencia válida.')
         const at = new Date().toISOString()
         const item = {
           id: randomUUID(), clientId: user.id, providerId: service.providerId,
           serviceId: service.id, serviceTitle: service.title,
           providerName: providerProfile.name,
-          need, urgency: payload.urgency, location, directions, createdAt: at, updatedAt: at,
+          need, urgency: payload.urgency, location, directions, images, createdAt: at, updatedAt: at,
           status: 'Pendiente', history: [{ status: 'Pendiente', at, actor: 'Cliente', action: 'created' }],
         }
         currentDatabase.requests.unshift(item)
@@ -788,7 +820,7 @@ export async function jsonApi(request, response, next) {
 
     if (pathname === '/api/services' && request.method === 'POST') {
       requireRole(user, 'Proveedor')
-      const payload = await readBody(request)
+      const payload = await readBody(request, maxImageBodyBytes)
       const service = await mutateDatabase((database) => {
         const fields = validateService(payload, database)
         const timestamp = new Date().toISOString()
@@ -802,11 +834,11 @@ export async function jsonApi(request, response, next) {
     const match = pathname.match(/^\/api\/services\/([a-zA-Z0-9-]+)$/)
     if (match && request.method === 'PUT') {
       requireRole(user, 'Proveedor')
-      const payload = await readBody(request)
+      const payload = await readBody(request, maxImageBodyBytes)
       const service = await mutateDatabase((database) => {
         const current = database.services.find((item) => item.id === match[1] && item.providerId === user.id)
         if (!current) throw new ApiError(404, 'El servicio no existe.')
-        Object.assign(current, validateService(payload, database), { updatedAt: new Date().toISOString() })
+        Object.assign(current, validateService(payload, database, current.images ?? []), { updatedAt: new Date().toISOString() })
         return current
       })
       return respond(response, 200, service)

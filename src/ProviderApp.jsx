@@ -18,9 +18,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { categoryStyle } from '@/lib/category-styles'
 import { groupCategories } from '@/lib/categories'
 import { cn } from '@/lib/utils'
+import { ImageGallery, ImagePicker } from '@/components/ImagePicker'
 import { createService, getDashboard, getProviderRequests, removeService, updateService } from './api.js'
 
-const blankForm = { title: '', category: '', description: '' }
+const blankForm = { title: '', category: '', description: '', images: [] }
 
 function dateLabel(value) {
   const date = new Date(value)
@@ -108,7 +109,7 @@ function ProviderApp({ initialUser, onLogout }) {
 
   function editService(service, event) {
     if (event) dialogTrigger.current = event.currentTarget
-    setForm({ title: service.title, category: service.category, description: service.description })
+    setForm({ title: service.title, category: service.category, description: service.description, images: service.images ?? [] })
     setActionError('')
     setDialog({ type: 'form', id: service.id })
   }
@@ -131,12 +132,12 @@ function ProviderApp({ initialUser, onLogout }) {
     setActionError('')
     try {
       if (dialog.id) {
-        const updated = await updateService(dialog.id, { title, description, category: form.category })
+        const updated = await updateService(dialog.id, { title, description, category: form.category, images: form.images })
         setServices((current) => current.map((service) => service.id === updated.id ? updated : service))
         if (category !== 'Todas') setCategory(updated.category)
         setNotice('Servicio actualizado correctamente')
       } else {
-        const created = await createService({ title, description, category: form.category })
+        const created = await createService({ title, description, category: form.category, images: form.images })
         setServices((current) => [created, ...current])
         setCategory('Todas')
         setNotice('Servicio publicado correctamente')
@@ -189,6 +190,7 @@ function ProviderApp({ initialUser, onLogout }) {
             const item = styleOf(service.category)
             return <AnimatedItem key={service.id} className="min-w-0">
               <Card className="h-full gap-0 overflow-hidden rounded-2xl py-0 shadow-sm shadow-primary/5 transition-shadow hover:shadow-md hover:shadow-primary/10">
+                {service.images?.length > 0 && <img src={service.images[0].dataUrl} alt={`Muestra de ${service.title}`} className="aspect-[16/9] w-full object-cover" />}
                 <CardContent className="flex flex-1 flex-col p-6">
                   <div className="mb-5 flex items-center justify-between gap-3">
                     <span className={cn('grid size-11 place-items-center rounded-xl text-xl', categoryStyle(item.color))} aria-hidden="true">{item.icon}</span>
@@ -243,6 +245,7 @@ function ProviderApp({ initialUser, onLogout }) {
               <Textarea id="description" rows={6} required maxLength={800} disabled={saving} placeholder="Describe qué incluye el servicio, cómo trabajas y qué puede esperar el cliente..." value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} className="min-h-36 resize-y" aria-describedby="description-hint" />
               <div id="description-hint" className="flex justify-between gap-4 text-xs text-muted-foreground"><span>Explica lo que incluye tu servicio.</span><span>{form.description.length}/800</span></div>
             </div>
+            <ImagePicker id="service-images" label="Fotos de trabajos anteriores" images={form.images} onChange={(images) => setForm((current) => ({ ...current, images }))} disabled={saving} />
             {actionError && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive" role="alert">{actionError}</p>}
             <DialogFooter className="border-t pt-4">
               <Button type="button" variant="outline" onClick={() => setDialog(null)} disabled={saving}>Cancelar</Button>
@@ -259,6 +262,7 @@ function ProviderApp({ initialUser, onLogout }) {
             <Badge variant="secondary" className={cn('gap-2 px-3 py-1.5', categoryStyle(styleOf(selected.category).color))}>{styleOf(selected.category).icon} {selected.category}</Badge>
             <h3 className="text-sm font-bold">Descripción</h3>
             <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground wrap-anywhere">{selected.description}</p>
+            <ImageGallery images={selected.images} label="Fotos del servicio" altPrefix="Foto del servicio" />
             <p className="text-xs text-muted-foreground">Publicado · Actualizado {dateLabel(selected.updatedAt)}</p>
           </div>
           <DialogFooter className="border-t pt-4"><Button variant="outline" onClick={() => setDialog(null)}>Cerrar</Button><Button onClick={() => editService(selected)}><Pencil aria-hidden="true" />Editar servicio</Button></DialogFooter>
