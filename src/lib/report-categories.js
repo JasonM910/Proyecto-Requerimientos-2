@@ -1,0 +1,1 @@
+export const REPORT_CATEGORIES = ['Conducta inapropiada', 'Incumplimiento del servicio', 'Cobro o pago irregular', 'Datos personales o contacto externo', 'Perfil o publicación falsa', 'Otra anomalía']

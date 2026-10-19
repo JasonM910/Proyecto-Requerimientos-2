@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { FieldError, ValidatedForm } from '@/components/InlineValidation'
 
 const areas = [
   { id: 'cocina-bano', label: 'Cocina o baño', place: 'la cocina o el baño', categories: ['Plomería', 'Electricidad', 'Limpieza', 'Carpintería'] },
@@ -38,7 +39,6 @@ export default function GuidedAssistant({ open, onOpenChange, categories, onAppl
   const [expected, setExpected] = useState('')
   const [urgency, setUrgency] = useState('Flexible')
   const [description, setDescription] = useState('')
-  const [error, setError] = useState('')
 
   const area = areas.find((item) => item.id === areaId)
   const choices = categories.filter((item) => !area?.categories || area.categories.includes(item.name))
@@ -52,7 +52,6 @@ export default function GuidedAssistant({ open, onOpenChange, categories, onAppl
     setExpected('')
     setUrgency('Flexible')
     setDescription('')
-    setError('')
   }
 
   function changeOpen(next) {
@@ -62,22 +61,13 @@ export default function GuidedAssistant({ open, onOpenChange, categories, onAppl
 
   function prepare(event) {
     event.preventDefault()
-    if (details.trim().length < 10) {
-      setError('Describe el problema con al menos 10 caracteres.')
-      return
-    }
     const text = `Necesito ayuda con ${selectedHelp.phrase} en ${area.place}. ${asSentence(details)}${expected.trim() ? ` Resultado esperado: ${asSentence(expected)}` : ''}`
     setDescription(text)
-    setError('')
     setStep(3)
   }
 
   function apply(event) {
     event.preventDefault()
-    if (description.trim().length < 10) {
-      setError('La descripción debe tener al menos 10 caracteres.')
-      return
-    }
     onApply({ category, description: description.trim(), urgency })
     changeOpen(false)
   }
@@ -110,22 +100,20 @@ export default function GuidedAssistant({ open, onOpenChange, categories, onAppl
         </div>
       </section>}
 
-      {step === 2 && <form id="assistant-details" className="space-y-4" onSubmit={prepare}>
+      {step === 2 && <ValidatedForm id="assistant-details" className="space-y-4" onSubmit={prepare}>
         <h3 className="font-heading text-lg font-bold text-brand">Cuéntanos qué está pasando</h3>
-        <div className="space-y-2"><Label htmlFor="assistant-problem">Describe el problema <span className="text-destructive">*</span></Label><Textarea id="assistant-problem" required minLength={10} maxLength={500} rows={4} value={details} onChange={(event) => setDetails(event.target.value)} placeholder="Ej. Hay una fuga debajo del fregadero desde ayer." /></div>
+        <div className="space-y-2"><Label htmlFor="assistant-problem">Describe el problema <span className="text-destructive">*</span></Label><Textarea id="assistant-problem" required minLength={10} maxLength={500} rows={4} value={details} onChange={(event) => setDetails(event.target.value)} placeholder="Ej. Hay una fuga debajo del fregadero desde ayer." /><FieldError id="assistant-problem" /></div>
         <div className="space-y-2"><Label htmlFor="assistant-expected">¿Qué resultado esperas? (opcional)</Label><Textarea id="assistant-expected" maxLength={200} rows={2} value={expected} onChange={(event) => setExpected(event.target.value)} placeholder="Ej. Reparar la fuga y revisar las conexiones." /></div>
         <div className="space-y-2"><Label htmlFor="assistant-urgency">¿Qué tan pronto necesitas ayuda?</Label><Select value={urgency} onValueChange={setUrgency}><SelectTrigger id="assistant-urgency" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Flexible">Flexible</SelectItem><SelectItem value="Próximos días">Próximos días</SelectItem><SelectItem value="Urgente">Urgente</SelectItem></SelectContent></Select></div>
         <p className="text-xs text-muted-foreground">No incluyas teléfono, correo ni dirección exacta aquí. Podrás agregar indicaciones privadas al solicitar el servicio.</p>
-        {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
-      </form>}
+      </ValidatedForm>}
 
-      {step === 3 && <form id="assistant-summary" className="space-y-4" onSubmit={apply}>
+      {step === 3 && <ValidatedForm id="assistant-summary" className="space-y-4" onSubmit={apply}>
         <h3 className="font-heading text-lg font-bold text-brand">Esta es nuestra sugerencia</h3>
         <div className="rounded-xl border border-primary/15 bg-accent/50 p-4"><p className="text-xs text-muted-foreground">Categoría recomendada</p><p className="mt-1 flex items-center gap-2 font-semibold text-brand"><Check className="size-4 text-primary" aria-hidden="true" />{category}</p></div>
-        <div className="space-y-2"><Label htmlFor="assistant-description">Descripción para tu solicitud</Label><Textarea id="assistant-description" required minLength={10} maxLength={1000} rows={5} value={description} onChange={(event) => setDescription(event.target.value)} /><p className="text-xs text-muted-foreground">Puedes modificar este texto ahora o al elegir un proveedor.</p></div>
+        <div className="space-y-2"><Label htmlFor="assistant-description">Descripción para tu solicitud</Label><Textarea id="assistant-description" required minLength={10} maxLength={1000} rows={5} value={description} onChange={(event) => setDescription(event.target.value)} /><FieldError id="assistant-description" /><p className="text-xs text-muted-foreground">Puedes modificar este texto ahora o al elegir un proveedor.</p></div>
         <p className="text-xs text-muted-foreground">Urgencia: {urgency}. La zona se selecciona al enviar la solicitud.</p>
-        {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
-      </form>}
+      </ValidatedForm>}
 
       <DialogFooter className="border-t pt-4">
         {step > 0 && <Button type="button" variant="outline" className="mr-auto" onClick={() => setStep(step - 1)}><ArrowLeft className="size-4" aria-hidden="true" />Volver</Button>}

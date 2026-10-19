@@ -29,6 +29,7 @@ La interfaz utiliza **Tailwind CSS 4**, **shadcn/ui** (Radix) y **Motion**. Cons
 - [`src/index.css`](src/index.css) contiene la paleta con nombres, las tipografías y la correspondencia de variables con Tailwind. La distribución y los estilos de cada vista están en sus componentes JSX.
 - [`src/components/ui`](src/components/ui) contiene los componentes de shadcn: botones, tarjetas, campos, etiquetas, selectores y diálogos accesibles. Su configuración está en [`components.json`](components.json).
 - [`src/components/AppShell.jsx`](src/components/AppShell.jsx) comparte el menú y la cabecera entre roles. [`src/components/page.jsx`](src/components/page.jsx) reúne encabezados, estados vacíos y notificaciones.
+- [`src/components/InlineValidation.jsx`](src/components/InlineValidation.jsx) muestra los errores bajo cada campo, marca los campos incorrectos y lleva el foco al primero que requiere corrección. Los formularios de acceso y perfiles mantienen sus validaciones específicas con el mismo estilo.
 - Motion anima el acceso, los cambios de vista, las tarjetas y las notificaciones. La política global de [`src/main.jsx`](src/main.jsx) respeta la preferencia de movimiento reducido del dispositivo.
 - Los paneles de cada rol se cargan bajo demanda para reducir el código necesario en el inicio de sesión.
 

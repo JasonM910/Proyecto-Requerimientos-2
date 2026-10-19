@@ -1,0 +1,82 @@
+import { mkdir } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
+import { expect, test } from '@playwright/test'
+
+async function login(page, role) {
+  await page.goto('/')
+  await page.getByRole('button', { name: role, exact: true }).click()
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Cerrar sesión', exact: true })).toBeVisible()
+}
+
+test('los errores de publicación aparecen junto a cada campo y se corrigen al editar', async ({ page }) => {
+  await login(page, 'Proveedor')
+  await page.getByRole('button', { name: 'Nuevo servicio' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Nuevo servicio' })
+  await dialog.getByRole('button', { name: 'Publicar servicio' }).click()
+  await expect(dialog.locator('#title')).toBeFocused()
+  await expect(dialog.locator('#title')).toHaveAttribute('aria-invalid', 'true')
+  await expect(dialog.locator('#title-error')).toHaveText('Completa este campo.')
+  await expect(dialog.locator('#description')).toHaveAttribute('aria-invalid', 'true')
+  await expect(dialog.locator('#description-error')).toHaveText('Completa este campo.')
+
+  const captures = resolve('test-results', 'capturas')
+  await mkdir(captures, { recursive: true })
+  await page.screenshot({ path: join(captures, '15-validacion-publicacion.png'), animations: 'disabled' })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true)
+
+  await dialog.locator('#title').fill('Reparación de prueba')
+  await dialog.locator('#description').fill('Trabajo de prueba para comprobar los mensajes de validación.')
+  await expect(dialog.locator('#title-error')).toHaveCount(0)
+  await expect(dialog.locator('#description-error')).toHaveCount(0)
+  await dialog.getByRole('button', { name: 'Publicar servicio' }).click()
+  await expect(dialog.getByText('Selecciona una categoría.', { exact: true })).toBeVisible()
+  await expect(dialog.locator('#category')).toHaveAttribute('aria-invalid', 'true')
+  await dialog.locator('#category').click()
+  await page.getByRole('option', { name: 'Plomería', exact: true }).click()
+  await expect(dialog.locator('#category')).toHaveAttribute('aria-invalid', 'false')
+})
+
+test('solicitudes y reportes muestran la validación debajo del texto', async ({ page }) => {
+  await login(page, 'Cliente')
+  await page.getByRole('button', { name: 'Buscar servicios', exact: true }).click()
+  await page.getByRole('button', { name: 'Ver detalles' }).first().click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Solicitar servicio' }).click()
+  const request = page.getByRole('dialog', { name: 'Solicitar servicio' })
+  await request.getByRole('button', { name: 'Enviar solicitud' }).click()
+  await expect(request.locator('#request-need')).toHaveAttribute('aria-invalid', 'true')
+  await expect(request.locator('#request-need-error')).toHaveText('Completa este campo.')
+  await request.locator('#request-need').fill('Revisar una fuga de agua en la cocina.')
+  await expect(request.locator('#request-need-error')).toHaveCount(0)
+  await request.getByRole('button', { name: 'Cancelar' }).click()
+
+  await page.getByRole('button', { name: 'Seguridad y confianza', exact: true }).click()
+  await page.getByRole('button', { name: 'Nuevo reporte' }).click()
+  const report = page.getByRole('dialog', { name: 'Reportar un problema' })
+  await report.locator('#report-description').fill('Descripción clara para revisar el reporte.')
+  await report.getByRole('button', { name: 'Enviar reporte' }).click()
+  await expect(report.locator('#report-category')).toHaveAttribute('aria-invalid', 'true')
+  await expect(report.getByText('Selecciona una categoría para el reporte.', { exact: true })).toBeVisible()
+  await report.locator('#report-category').click()
+  await page.getByRole('option', { name: 'Otra anomalía' }).click()
+  await expect(report.locator('#report-category')).toHaveAttribute('aria-invalid', 'false')
+  await report.locator('#report-description').fill('')
+  await report.getByRole('button', { name: 'Enviar reporte' }).click()
+  await expect(report.locator('#report-description')).toHaveAttribute('aria-invalid', 'true')
+  await expect(report.locator('#report-description-error')).toHaveText('Completa este campo.')
+})
+
+test('el perfil del proveedor señala valores incorrectos junto al campo', async ({ page }) => {
+  await login(page, 'Proveedor')
+  await page.getByRole('button', { name: 'Mi perfil', exact: true }).click()
+  await page.locator('#pf-years').fill('99')
+  await page.getByRole('button', { name: 'Guardar perfil' }).click()
+  await expect(page.locator('#pf-years')).toHaveAttribute('aria-invalid', 'true')
+  await expect(page.locator('#pf-years-error')).toHaveText('Escribe un número entre 0 y 60.')
+  await page.locator('#pf-years').fill('7')
+  await expect(page.locator('#pf-years-error')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Descartar cambios' }).click()
+  await page.locator('#pf-zone').fill('Zona de prueba')
+  await expect(page.getByRole('button', { name: 'Guardar perfil' })).toBeEnabled()
+})

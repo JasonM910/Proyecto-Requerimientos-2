@@ -12,7 +12,7 @@
   --popover: #ffffff;
   --popover-foreground: #263a36;
   --muted: #f3f6f5;
-  --muted-foreground: #697d74;
+  --muted-foreground: #5e7168;
   --border: #e4ebe7;
   --input: #dce6e0;
 
@@ -21,36 +21,36 @@
   --brand-icon: #228268;
   --brand-accent: #2caa8b;
   --login: #cee9da;
-  --primary: #238669;
+  --primary: #1d7b60;
   --primary-foreground: #ffffff;
   --secondary: #eff6f2;
   --secondary-foreground: #405b4f;
   --accent: #e8f5ef;
   --accent-foreground: #16735b;
-  --destructive: #c94848;
+  --destructive: #bd3d3d;
   --ring: #51b391;
 
   /* Indicadores y categorías */
   --mint: #eaf7f2;
-  --mint-foreground: #238265;
+  --mint-foreground: #1d765b;
   --apricot: #fff2e5;
   --apricot-foreground: #986124;
   --lilac: #f1eefb;
-  --lilac-foreground: #75689f;
+  --lilac-foreground: #695b93;
   --category-blue: #e9f4fb;
-  --category-blue-foreground: #367899;
+  --category-blue-foreground: #2e6b8b;
   --category-yellow: #fff3d8;
-  --category-yellow-foreground: #966b12;
+  --category-yellow-foreground: #875f0e;
   --category-purple: #f3edfa;
-  --category-purple-foreground: #8962a5;
+  --category-purple-foreground: #795394;
   --category-green: #e9f5e9;
-  --category-green-foreground: #498657;
+  --category-green-foreground: #3b7447;
   --category-orange: #fff0e6;
-  --category-orange-foreground: #ab6637;
+  --category-orange-foreground: #96582e;
   --category-pink: #faedf0;
   --category-pink-foreground: #a3556c;
   --category-gray: #edf2f4;
-  --category-gray-foreground: #587681;
+  --category-gray-foreground: #4e6974;
   --radius: 0.75rem;
 }
 

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AnimatedItem, EmptyState, Page, PageFooter, PageHeader } from '@/components/page'
 import { QuoteBreakdown, StatCard } from '@/components/finance'
+import { FieldError, ValidatedForm } from '@/components/InlineValidation'
 import { money, paymentState } from '@/lib/money'
 import { getBilling, updateClientRequest } from './api.js'
 
@@ -54,14 +55,14 @@ function Invoice({ record, isClient, onClose }) {
 function PaymentForm({ record, busy, onCancel, onSubmit }) {
   const [method, setMethod] = useState(paymentMethods[0])
   const [amount, setAmount] = useState(String(record.balance))
-  return <form className="mt-4 space-y-4 rounded-xl border border-border bg-background p-4" aria-label="Registrar pago" onSubmit={(event) => { event.preventDefault(); onSubmit({ method, amount: Number(amount) }) }}>
+  return <ValidatedForm className="mt-4 space-y-4 rounded-xl border border-border bg-background p-4" aria-label="Registrar pago" onSubmit={(event) => { event.preventDefault(); onSubmit({ method, amount: Number(amount) }) }}>
     <p className="text-xs leading-relaxed text-muted-foreground">Los pagos son registros de demostración: no se procesa dinero ni se guardan datos de tarjetas.</p>
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-1.5"><Label htmlFor={`method-${record.id}`}>Método de pago</Label><select id={`method-${record.id}`} className={selectClass} value={method} onChange={(event) => setMethod(event.target.value)} disabled={busy}>{paymentMethods.map((item) => <option key={item}>{item}</option>)}</select></div>
-      <div className="space-y-1.5"><Label htmlFor={`pay-${record.id}`}>Monto a pagar (₡)</Label><Input id={`pay-${record.id}`} type="number" inputMode="decimal" required min="0.01" max={record.balance} step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} disabled={busy} /></div>
+      <div className="space-y-1.5"><Label htmlFor={`pay-${record.id}`}>Monto a pagar (₡)</Label><Input id={`pay-${record.id}`} type="number" inputMode="decimal" required min="0.01" max={record.balance} step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} disabled={busy} /><FieldError id={`pay-${record.id}`} /></div>
     </div>
     <div className="flex flex-wrap justify-end gap-2"><Button type="button" size="sm" variant="outline" onClick={onCancel} disabled={busy}>Cancelar</Button><Button type="submit" size="sm" disabled={busy}>{busy ? 'Guardando...' : 'Confirmar pago'}</Button></div>
-  </form>
+  </ValidatedForm>
 }
 
 function Billing({ role, onNotice }) {

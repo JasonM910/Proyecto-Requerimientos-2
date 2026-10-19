@@ -49,7 +49,10 @@ function ClientProfile({ onNotice, onSaved }) {
   async function save(event) {
     event.preventDefault()
     setSubmitted(true)
-    if (Object.keys(errors).length) return
+    if (Object.keys(errors).length) {
+      document.getElementById(`client-${Object.keys(errors)[0]}`)?.focus()
+      return
+    }
     setSaving(true)
     setActionError('')
     try {

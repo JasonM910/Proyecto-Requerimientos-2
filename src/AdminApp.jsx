@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { EmptyState, Notice, Page, PageFooter, PageHeader } from '@/components/page'
+import { FieldError, ValidatedForm } from '@/components/InlineValidation'
 import { getAdminReports, getAdminVerifications, reviewReport, reviewVerification } from './api.js'
 
 const date = new Intl.DateTimeFormat('es-CR', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -84,11 +85,12 @@ function AdminApp({ initialUser, onLogout }) {
               <p className="text-xs text-muted-foreground">{report.reporterName} · {report.reporterRole} · <time dateTime={report.createdAt}>{date.format(new Date(report.createdAt))}</time>{report.targetName && ` · Sobre ${report.targetName}`}{report.requestTitle && ` · ${report.requestTitle}`}</p>
               <p className="text-sm whitespace-pre-wrap break-words">{report.description}</p>
               <ol className="space-y-1 border-l-2 border-primary/15 pl-4 text-xs text-muted-foreground">{report.history.map((entry, index) => <li key={index}><strong className="text-foreground">{entry.status}</strong> · {entry.note}</li>)}</ol>
-              {report.status !== 'Resuelto' && <form className="space-y-3 border-t pt-4" onSubmit={(event) => { event.preventDefault(); actReport(report, report.status === 'Recibido' ? 'review' : 'resolve') }}>
+              {report.status !== 'Resuelto' && <ValidatedForm className="space-y-3 border-t pt-4" onSubmit={(event) => { event.preventDefault(); actReport(report, report.status === 'Recibido' ? 'review' : 'resolve') }}>
                 <Label htmlFor={`report-note-${report.id}`}>Respuesta del equipo</Label>
                 <Textarea id={`report-note-${report.id}`} required minLength={5} maxLength={500} rows={2} value={notes[report.id] || ''} onChange={(event) => setNote(report.id, event.target.value)} disabled={busy === report.id} placeholder="Describe lo revisado o la resolución del caso." />
+                <FieldError id={`report-note-${report.id}`} />
                 <Button size="sm" type="submit" disabled={busy === report.id}>{report.status === 'Recibido' ? 'Iniciar revisión' : 'Resolver reporte'}</Button>
-              </form>}
+              </ValidatedForm>}
             </CardContent>
           </Card>) : verifications.map((profile) => <Card className="gap-0 rounded-2xl py-0 shadow-none" key={profile.providerId} aria-label={`Verificación: ${profile.name}`}>
             <CardContent className="space-y-4 p-5 sm:p-6">

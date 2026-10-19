@@ -37,12 +37,14 @@ const toForm = (profile) => ({
 })
 
 function validate(form) {
+  const errors = {}
   const years = form.experienceYears.trim()
-  if (!form.name.trim()) return 'Escribe tu nombre o el de tu negocio.'
-  if (years !== '' && (!/^\d+$/.test(years) || Number(years) > 60)) return 'Los años de experiencia deben ser un número entre 0 y 60.'
-  if (!form.zones.length) return 'Agrega al menos una zona de atención.'
-  if (form.email.trim() && !/^\S+@\S+\.\S+$/.test(form.email.trim())) return 'Revisa el formato del correo electrónico.'
-  return ''
+  if (!form.name.trim()) errors.name = 'Escribe tu nombre o el de tu negocio.'
+  if (years !== '' && (!/^\d+$/.test(years) || Number(years) > 60)) errors.experienceYears = 'Escribe un número entre 0 y 60.'
+  if (!form.zones.length) errors.zones = 'Agrega al menos una zona de atención.'
+  if (form.zones.length > MAX_ZONES) errors.zones = `Puedes agregar hasta ${MAX_ZONES} zonas.`
+  if (form.email.trim() && !/^\S+@\S+\.\S+$/.test(form.email.trim())) errors.email = 'Escribe un correo válido.'
+  return errors
 }
 
 // La vista previa utiliza únicamente los campos públicos del formulario.
@@ -103,6 +105,8 @@ function Profile({ onNotice, onSaved }) {
   const [zoneDraft, setZoneDraft] = useState('')
   const [loadError, setLoadError] = useState('')
   const [actionError, setActionError] = useState('')
+  const [zoneError, setZoneError] = useState('')
+  const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -116,36 +120,47 @@ function Profile({ onNotice, onSaved }) {
   }, [])
 
   const set = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }))
-  const dirty = form && saved && JSON.stringify(form) !== JSON.stringify(saved)
+  const pendingZone = zoneDraft.trim().replace(/\s+/g, ' ')
+  const zonesForSave = form && pendingZone && !form.zones.some((current) => current.toLowerCase() === pendingZone.toLowerCase()) ? [...form.zones, pendingZone] : form?.zones ?? []
+  const errors = form ? validate({ ...form, zones: zonesForSave }) : {}
+  if (form && pendingZone && form.zones.some((current) => current.toLowerCase() === pendingZone.toLowerCase())) errors.zones = 'Esta zona ya está agregada.'
+  const dirty = form && saved && (JSON.stringify(form) !== JSON.stringify(saved) || Boolean(pendingZone))
 
   function addZone() {
     const zone = zoneDraft.trim().replace(/\s+/g, ' ')
-    if (!zone) return
-    if (form.zones.some((current) => current.toLowerCase() === zone.toLowerCase())) { setZoneDraft(''); return }
-    if (form.zones.length >= MAX_ZONES) { setActionError(`Puedes agregar hasta ${MAX_ZONES} zonas.`); return }
+    if (!zone) { setZoneError('Escribe una zona antes de agregarla.'); return }
+    if (form.zones.some((current) => current.toLowerCase() === zone.toLowerCase())) { setZoneError('Esta zona ya está agregada.'); return }
+    if (form.zones.length >= MAX_ZONES) { setZoneError(`Puedes agregar hasta ${MAX_ZONES} zonas.`); return }
     setActionError('')
+    setZoneError('')
     setForm({ ...form, zones: [...form.zones, zone] })
     setZoneDraft('')
   }
 
-  const removeZone = (zone) => setForm({ ...form, zones: form.zones.filter((current) => current !== zone) })
+  const removeZone = (zone) => { setForm({ ...form, zones: form.zones.filter((current) => current !== zone) }); setZoneError('') }
 
   async function save(event) {
     event.preventDefault()
-    const problem = validate(form)
-    if (problem) { setActionError(problem); return }
+    setSubmitted(true)
+    if (Object.keys(errors).length) {
+      document.getElementById(`pf-${Object.keys(errors)[0] === 'zones' ? 'zone' : Object.keys(errors)[0] === 'experienceYears' ? 'years' : Object.keys(errors)[0]}`)?.focus()
+      return
+    }
     setSaving(true)
     setActionError('')
     try {
       const years = form.experienceYears.trim()
       const updated = await updateProfile({
         name: form.name.trim(), headline: form.headline.trim(), about: form.about.trim(), experience: form.experience.trim(),
-        experienceYears: years === '' ? null : Number(years), zones: form.zones,
+        experienceYears: years === '' ? null : Number(years), zones: zonesForSave,
         email: form.email.trim(), phone: form.phone.trim(), address: form.address.trim(),
         legalId: form.legalId.trim(), verificationDocuments: form.verificationDocuments.trim(), bankAccount: form.bankAccount.trim(),
       })
       setSaved(toForm(updated))
       setForm(toForm(updated))
+      setZoneDraft('')
+      setZoneError('')
+      setSubmitted(false)
       onSaved?.(updated)
       onNotice?.('Perfil actualizado correctamente')
     } catch (error) {
@@ -177,7 +192,8 @@ function Profile({ onNotice, onSaved }) {
               <CardContent className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="pf-name">Nombre o negocio <span className="text-destructive" aria-hidden="true">*</span></Label>
-                  <Input id="pf-name" maxLength={60} placeholder="Ej. Carlos Mora" value={form.name} onChange={set('name')} required />
+                  <Input id="pf-name" maxLength={60} placeholder="Ej. Carlos Mora" value={form.name} onChange={set('name')} required aria-invalid={submitted && Boolean(errors.name)} aria-describedby={submitted && errors.name ? 'pf-name-error' : undefined} />
+                  {submitted && errors.name && <p id="pf-name-error" role="alert" className="text-xs font-medium text-destructive">{errors.name}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="pf-headline">Especialidad</Label>
@@ -190,7 +206,8 @@ function Profile({ onNotice, onSaved }) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="pf-years">Años de experiencia</Label>
-                  <Input id="pf-years" inputMode="numeric" maxLength={2} placeholder="Ej. 8" value={form.experienceYears} onChange={set('experienceYears')} />
+                  <Input id="pf-years" inputMode="numeric" maxLength={2} placeholder="Ej. 8" value={form.experienceYears} onChange={set('experienceYears')} aria-invalid={submitted && Boolean(errors.experienceYears)} aria-describedby={submitted && errors.experienceYears ? 'pf-years-error' : undefined} />
+                  {submitted && errors.experienceYears && <p id="pf-years-error" role="alert" className="text-xs font-medium text-destructive">{errors.experienceYears}</p>}
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="pf-exp">Descripción de la experiencia</Label>
@@ -200,10 +217,11 @@ function Profile({ onNotice, onSaved }) {
                 <div className="space-y-3 sm:col-span-2">
                   <Label htmlFor="pf-zone">Zonas de atención <span className="text-destructive" aria-hidden="true">*</span></Label>
                   <div className="flex gap-2">
-                    <Input id="pf-zone" className="min-w-0 flex-1" maxLength={40} placeholder="Ej. Quesada" value={zoneDraft} onChange={(event) => setZoneDraft(event.target.value)} aria-describedby="pf-zone-help" onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addZone() } }} />
+                    <Input id="pf-zone" className="min-w-0 flex-1" maxLength={40} placeholder="Ej. Quesada" value={zoneDraft} onChange={(event) => { setZoneDraft(event.target.value); setZoneError('') }} aria-invalid={Boolean(zoneError || (submitted && errors.zones))} aria-describedby={zoneError || (submitted && errors.zones) ? 'pf-zone-error pf-zone-help' : 'pf-zone-help'} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addZone() } }} />
                     <Button type="button" variant="outline" onClick={addZone}><Plus className="size-4" aria-hidden="true" />Agregar</Button>
                   </div>
                   <p id="pf-zone-help" className="text-xs leading-relaxed text-muted-foreground">Presiona Enter o “Agregar” para sumar cada zona (máximo {MAX_ZONES}).</p>
+                  {(zoneError || (submitted && errors.zones)) && <p id="pf-zone-error" role="alert" className="text-xs font-medium text-destructive">{zoneError || errors.zones}</p>}
                   {form.zones.length > 0 && (
                     <ul className="flex flex-wrap gap-2" aria-label="Zonas de atención seleccionadas">
                       {form.zones.map((zone) => (
@@ -232,7 +250,8 @@ function Profile({ onNotice, onSaved }) {
                 {PRIVATE_FIELDS.map((field) => (
                   <div className={`space-y-2 ${field.key === 'address' || field.key === 'verificationDocuments' ? 'sm:col-span-2' : ''}`} key={field.key}>
                     <Label htmlFor={`pf-${field.key}`}>{field.label}</Label>
-                    <Input id={`pf-${field.key}`} type={field.type} autoComplete={field.autoComplete} maxLength={field.maxLength || 120} placeholder={field.placeholder} value={form[field.key]} onChange={set(field.key)} />
+                    <Input id={`pf-${field.key}`} type={field.type} autoComplete={field.autoComplete} maxLength={field.maxLength || 120} placeholder={field.placeholder} value={form[field.key]} onChange={set(field.key)} aria-invalid={submitted && Boolean(errors[field.key])} aria-describedby={submitted && errors[field.key] ? `pf-${field.key}-error` : undefined} />
+                    {submitted && errors[field.key] && <p id={`pf-${field.key}-error`} role="alert" className="text-xs font-medium text-destructive">{errors[field.key]}</p>}
                   </div>
                 ))}
               </CardContent>
@@ -241,7 +260,7 @@ function Profile({ onNotice, onSaved }) {
 
           <div className="flex flex-wrap justify-end gap-3">
             {actionError && <p className="w-full rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">{actionError}</p>}
-            <Button type="button" variant="outline" className="flex-1 sm:flex-none" onClick={() => { setForm(saved); setZoneDraft(''); setActionError('') }} disabled={!dirty || saving}>Descartar cambios</Button>
+            <Button type="button" variant="outline" className="flex-1 sm:flex-none" onClick={() => { setForm(saved); setZoneDraft(''); setActionError(''); setZoneError(''); setSubmitted(false) }} disabled={!dirty || saving}>Descartar cambios</Button>
             <Button type="submit" className="flex-1 sm:flex-none" disabled={!dirty || saving}>
               {saving ? <LoaderCircle className="size-4 motion-safe:animate-spin" aria-hidden="true" /> : <Check className="size-4" aria-hidden="true" />}
               {saving ? 'Guardando...' : 'Guardar perfil'}

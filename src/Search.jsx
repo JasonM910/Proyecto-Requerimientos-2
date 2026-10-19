@@ -15,6 +15,7 @@ import { ReportDialog } from '@/components/ReportDialog'
 import { VerifiedBadge } from '@/components/Trust'
 import { ImageGallery, ImagePicker } from '@/components/ImagePicker'
 import GuidedAssistant from '@/components/GuidedAssistant'
+import { FieldError, ValidatedForm } from '@/components/InlineValidation'
 import { createRequest, searchServices } from './api.js'
 
 const initialsOf = (name) => name.split(' ').filter(Boolean).slice(0, 2).map((word) => word[0]).join('').toUpperCase() || '—'
@@ -208,10 +209,11 @@ function Search({ onRequestCreated, onNotice }) {
           <DialogTitle className="font-heading text-2xl text-brand">Solicitar servicio</DialogTitle>
           <DialogDescription>{requestService.title} · {requestService.provider.name}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={sendRequest} className="space-y-5" aria-busy={requestBusy}>
+        <ValidatedForm onSubmit={sendRequest} className="space-y-5" aria-busy={requestBusy}>
           <div className="space-y-2">
             <Label htmlFor="request-need">¿Qué trabajo necesitas? <span className="text-destructive">*</span></Label>
             <Textarea id="request-need" required minLength={10} maxLength={1000} rows={5} className="min-h-28 resize-y" placeholder="Describe el problema y lo que esperas del servicio." value={requestForm.need} onChange={(event) => setRequestForm({ ...requestForm, need: event.target.value })} disabled={requestBusy} />
+            <FieldError id="request-need" />
             <p className="text-xs text-muted-foreground">Evita compartir teléfono, correo o dirección exacta antes de aceptar una propuesta.</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -241,7 +243,7 @@ function Search({ onRequestCreated, onNotice }) {
             <Button type="button" variant="outline" onClick={() => setRequestService(null)} disabled={requestBusy}>Cancelar</Button>
             <Button type="submit" disabled={requestBusy}><Send className="size-4" aria-hidden="true" />{requestBusy ? 'Enviando...' : 'Enviar solicitud'}</Button>
           </DialogFooter>
-        </form>
+        </ValidatedForm>
       </DialogContent>}
     </Dialog>
     <ReportDialog open={Boolean(reportProvider)} onOpenChange={(open) => { if (!open) setReportProvider(null) }} target={reportProvider ? { providerId: reportProvider.provider.id } : undefined} targetLabel={reportProvider?.provider.name} onCreated={() => onNotice?.('Reporte enviado. Gracias por avisarnos')} />

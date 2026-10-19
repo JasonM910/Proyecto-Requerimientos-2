@@ -11,6 +11,7 @@ import { QuoteBreakdown } from '@/components/finance'
 import { ReportDialog } from '@/components/ReportDialog'
 import { VerifiedBadge } from '@/components/Trust'
 import { ImageGallery } from '@/components/ImagePicker'
+import { FieldError, ValidatedForm } from '@/components/InlineValidation'
 import { moneyFormatter } from '@/lib/money'
 import QuoteForm from './QuoteForm.jsx'
 import { getClientRequests, getProviderRequests, updateClientRequest, updateProviderRequest } from './api.js'
@@ -172,14 +173,15 @@ function Requests({ role, refreshKey = 0, onUpdated, onNotice }) {
                   </div>
                   {draft?.id === item.id && (['quote', 'revise'].includes(draft.mode)
                     ? <QuoteForm id={`quote-${item.id}`} previous={draft.mode === 'revise' ? item.quote : null} busy={savingId === item.id} submitLabel={draft.mode === 'revise' ? 'Enviar nueva cotización' : 'Enviar al cliente'} onCancel={() => setDraft(null)} onSubmit={(data) => act(item, draft.mode, data)} />
-                    : <form className="mt-4 space-y-4 rounded-xl border border-border bg-background p-4" onSubmit={(event) => { event.preventDefault(); act(item, draft.mode, { message: draft.message.trim(), ...(draft.mode === 'counter' ? { amount: Number(draft.amount) } : {}) }) }}>
+                    : <ValidatedForm className="mt-4 space-y-4 rounded-xl border border-border bg-background p-4" onSubmit={(event) => { event.preventDefault(); act(item, draft.mode, { message: draft.message.trim(), ...(draft.mode === 'counter' ? { amount: Number(draft.amount) } : {}) }) }}>
                       <div className="space-y-2">
                         <Label htmlFor={`reply-${item.id}`}>{draft.mode === 'clarify' ? '¿Qué necesitas aclarar?' : draft.mode === 'reply' ? 'Tu respuesta' : ['counter', 'adjust'].includes(draft.mode) ? 'Mensaje para el proveedor' : 'Mensaje para el cliente'}</Label>
                         <Textarea id={`reply-${item.id}`} minLength={5} maxLength={600} rows={3} required value={draft.message} onChange={(event) => setDraft({ ...draft, message: event.target.value })} disabled={savingId === item.id} placeholder="Escribe un mensaje claro sin datos de contacto." />
+                        <FieldError id={`reply-${item.id}`} />
                       </div>
-                      {draft.mode === 'counter' && <div className="space-y-2"><Label htmlFor={`amount-${item.id}`}>Monto que propones (₡)</Label><Input id={`amount-${item.id}`} type="number" inputMode="decimal" min="0.01" max={item.quote?.total} step="0.01" required value={draft.amount} onChange={(event) => setDraft({ ...draft, amount: event.target.value })} disabled={savingId === item.id} /><p className="text-xs text-muted-foreground">Debe ser menor que el presupuesto actual ({moneyFormatter.format(item.quote?.total ?? 0)}).</p></div>}
+                      {draft.mode === 'counter' && <div className="space-y-2"><Label htmlFor={`amount-${item.id}`}>Monto que propones (₡)</Label><Input id={`amount-${item.id}`} type="number" inputMode="decimal" min="0.01" max={item.quote?.total} step="0.01" required value={draft.amount} onChange={(event) => setDraft({ ...draft, amount: event.target.value })} disabled={savingId === item.id} /><FieldError id={`amount-${item.id}`} /><p className="text-xs text-muted-foreground">Debe ser menor que el presupuesto actual ({moneyFormatter.format(item.quote?.total ?? 0)}).</p></div>}
                       <div className="flex flex-wrap justify-end gap-2"><Button type="button" size="sm" variant="outline" onClick={() => setDraft(null)} disabled={savingId === item.id}>Cancelar</Button><Button type="submit" size="sm" disabled={savingId === item.id}>{savingId === item.id ? 'Guardando...' : draft.mode === 'reply' ? 'Enviar respuesta' : draft.mode === 'counter' ? 'Enviar contraoferta' : draft.mode === 'adjust' ? 'Enviar ajustes' : 'Enviar al cliente'}</Button></div>
-                    </form>)}
+                    </ValidatedForm>)}
                   {actionError?.id === item.id && <p role="alert" className="mt-3 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{actionError.message}</p>}
                 </CardContent>
               </Card>

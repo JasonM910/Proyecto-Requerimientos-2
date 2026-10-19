@@ -19,6 +19,7 @@ import { categoryStyle } from '@/lib/category-styles'
 import { groupCategories } from '@/lib/categories'
 import { cn } from '@/lib/utils'
 import { ImageGallery, ImagePicker } from '@/components/ImagePicker'
+import { FieldError, ValidatedForm } from '@/components/InlineValidation'
 import { createService, getDashboard, getProviderRequests, removeService, updateService } from './api.js'
 
 const blankForm = { title: '', category: '', description: '', images: [] }
@@ -124,8 +125,9 @@ function ProviderApp({ initialUser, onLogout }) {
     event.preventDefault()
     const title = form.title.trim()
     const description = form.description.trim()
-    if (!title || !description || !categories.some((item) => item.name === form.category)) {
-      setActionError('Completa el título, la descripción y una categoría válida.')
+    if (!categories.some((item) => item.name === form.category)) {
+      setActionError('Selecciona una categoría.')
+      document.getElementById('category')?.focus()
       return
     }
     setSaving(true)
@@ -224,34 +226,37 @@ function ProviderApp({ initialUser, onLogout }) {
             <DialogTitle className="font-heading text-2xl font-bold text-brand">{dialog.id ? 'Editar servicio' : 'Nuevo servicio'}</DialogTitle>
             <DialogDescription>{dialog.id ? 'Actualiza la información de tu publicación.' : 'Cuéntanos qué servicio ofreces.'}</DialogDescription>
           </DialogHeader>
-          <form onSubmit={saveService} className="space-y-5" aria-busy={saving}>
+          <ValidatedForm onSubmit={saveService} className="space-y-5" aria-busy={saving}>
             <div className="space-y-2">
               <Label htmlFor="title">Título del servicio <span className="text-destructive">*</span></Label>
               <Input id="title" autoFocus required maxLength={80} disabled={saving} placeholder="Ej. Reparación de tuberías" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} aria-describedby="title-hint" />
+              <FieldError id="title" />
               <p id="title-hint" className="text-xs text-muted-foreground">Un nombre claro ayuda a reconocer tu servicio.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="category">Categoría <span className="text-destructive">*</span></Label>
-              <Select required value={form.category} onValueChange={(value) => setForm({ ...form, category: value })} disabled={saving}>
-                <SelectTrigger id="category" className="w-full"><SelectValue placeholder="Selecciona una categoría" /></SelectTrigger>
+              <Select value={form.category} onValueChange={(value) => { setForm({ ...form, category: value }); setActionError('') }} disabled={saving}>
+                <SelectTrigger id="category" className="w-full" aria-invalid={actionError === 'Selecciona una categoría.'} aria-describedby={actionError === 'Selecciona una categoría.' ? 'category-error' : undefined}><SelectValue placeholder="Selecciona una categoría" /></SelectTrigger>
                 <SelectContent>{groupCategories(categories).map((group) => <SelectGroup key={group.name}>
                   <SelectLabel>{group.name}</SelectLabel>
                   {group.categories.map((item) => <SelectItem key={item.name} value={item.name}>{item.name}</SelectItem>)}
                 </SelectGroup>)}</SelectContent>
               </Select>
+              {actionError === 'Selecciona una categoría.' && <p id="category-error" role="alert" className="text-xs font-medium text-destructive">{actionError}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Descripción detallada <span className="text-destructive">*</span></Label>
               <Textarea id="description" rows={6} required maxLength={800} disabled={saving} placeholder="Describe qué incluye el servicio, cómo trabajas y qué puede esperar el cliente..." value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} className="min-h-36 resize-y" aria-describedby="description-hint" />
+              <FieldError id="description" />
               <div id="description-hint" className="flex justify-between gap-4 text-xs text-muted-foreground"><span>Explica lo que incluye tu servicio.</span><span>{form.description.length}/800</span></div>
             </div>
             <ImagePicker id="service-images" label="Fotos de trabajos anteriores" images={form.images} onChange={(images) => setForm((current) => ({ ...current, images }))} disabled={saving} />
-            {actionError && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive" role="alert">{actionError}</p>}
+            {actionError && actionError !== 'Selecciona una categoría.' && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive" role="alert">{actionError}</p>}
             <DialogFooter className="border-t pt-4">
               <Button type="button" variant="outline" onClick={() => setDialog(null)} disabled={saving}>Cancelar</Button>
               <Button type="submit" disabled={saving}>{saving ? <LoaderCircle className="motion-safe:animate-spin" aria-hidden="true" /> : <Check aria-hidden="true" />}{saving ? 'Guardando...' : dialog.id ? 'Guardar cambios' : 'Publicar servicio'}</Button>
             </DialogFooter>
-          </form>
+          </ValidatedForm>
         </> : selected && <>
           <DialogHeader className="pr-6 text-left">
             <p className="text-[10px] font-bold tracking-[0.18em] text-primary">DETALLE DEL SERVICIO</p>
