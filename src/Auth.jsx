@@ -23,7 +23,7 @@ const entrance = {
   transition: { duration: 0.35, ease: 'easeOut' },
 }
 
-function Auth({ onLogin }) {
+function Auth({ onLogin, notice = '' }) {
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -92,6 +92,7 @@ function Auth({ onLogin }) {
               <p className="mb-3.5 text-[10px] font-bold tracking-[0.18em] text-primary">BIENVENIDO DE NUEVO</p>
               <h2 id="login-title" className="font-heading text-3xl font-extrabold tracking-tight text-brand">Iniciar sesión<span className="text-brand-accent">.</span></h2>
               <p className="mb-7 mt-2 text-sm leading-relaxed text-muted-foreground">Entra a tu espacio con tu correo o nombre de usuario.</p>
+              {notice && <p className="mb-5 rounded-xl border border-primary/20 bg-accent px-3.5 py-3 text-sm text-foreground" role="status">{notice}</p>}
 
               <form onSubmit={submit} className="space-y-5" aria-busy={busy} noValidate>
                 <div className="space-y-2.5">

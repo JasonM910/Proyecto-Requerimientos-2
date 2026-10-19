@@ -50,7 +50,7 @@ npm run test:e2e
 npm run test:capturas
 ```
 
-Las pruebas de navegador requieren Google Chrome instalado. Arrancan un servidor local en el puerto `4175` con una copia temporal del JSON, comprueban los tres roles, publicaciones, perfiles, solicitudes, privacidad, cotizaciones, reportes y la vista móvil, y eliminan los datos de prueba al terminar. Tu archivo `data/db.json` no se modifica durante las pruebas.
+Las pruebas de navegador requieren Google Chrome instalado. Arrancan un servidor local en el puerto `4175` con una copia temporal del JSON, comprueban los tres roles, publicaciones, perfiles, solicitudes, privacidad, cotizaciones, reportes, rendimiento local y la vista móvil, y eliminan los datos de prueba al terminar. Tu archivo `data/db.json` no se modifica durante las pruebas.
 
 La prueba de capturas guarda imágenes de los recorridos principales en `test-results/capturas/`. También se ejecuta con `npm run test:e2e`. Playwright borra `test-results/` al iniciar una nueva ejecución y guarda capturas adicionales de las pruebas que fallen.
 
@@ -86,15 +86,32 @@ Clientes y proveedores pueden enviar reportes generales o asociados a una solici
 
 ### Imágenes de muestra y evidencias (RF-24)
 
-El proveedor puede adjuntar hasta tres fotos JPG o PNG al crear o editar un servicio. Se muestran en su catálogo y en la búsqueda y detalle del cliente. El cliente puede adjuntar hasta tres fotos a una solicitud; ambas partes las ven en el seguimiento. Cada archivo puede pesar hasta 3 MB. Las imágenes se guardan como datos Base64 en `data/db.json`, por lo que esta solución está pensada para la demo y el archivo crecerá con cada foto. Las fotos de la solicitud son visibles para el proveedor desde que la recibe; el formulario recuerda evitar datos personales en ellas. `tests/rf-24.spec.js` comprueba carga, visualización, persistencia y validación de formatos.
+El proveedor puede adjuntar hasta tres fotos JPG o PNG al crear o editar un servicio y una foto pública a su perfil. El cliente puede adjuntar hasta tres fotos a una solicitud; ambas partes las ven en el seguimiento. Al tocar una miniatura en los detalles, en una solicitud o antes de guardar, se abre una vista ampliada; si hay varias fotos, se pueden recorrer con los botones o las flechas del teclado. Cada archivo de entrada puede pesar hasta 3 MB. El servidor comprueba el contenido, reduce las dimensiones, comprime la imagen y elimina sus metadatos antes de guardarla como Base64 en `data/db.json`. Esta solución está pensada para la demo y el archivo crecerá con cada foto. Las fotos de la solicitud son visibles para el proveedor desde que la recibe; el formulario recuerda evitar datos personales visibles en ellas. `tests/rf-24.spec.js` y `tests/nonfunctional.spec.js` comprueban la carga, visualización, persistencia, compresión y validación de formatos.
 
 ### Asistente guiado (RF-25)
 
 En «Buscar servicios», el cliente puede abrir «Ayúdame a elegir». El asistente pregunta por el área del hogar, el tipo de ayuda, el problema y la urgencia. Con esas respuestas sugiere una categoría disponible y prepara una descripción editable. Al aceptar la sugerencia, filtra el catálogo y completa la descripción y la urgencia del formulario de solicitud; el cliente puede revisarlas antes de enviarla. Las recomendaciones siguen reglas locales y no requieren un servicio externo de inteligencia artificial. `tests/rf-25.spec.js` comprueba el recorrido, la persistencia de la solicitud y el uso en móvil.
 
+## Requisitos no funcionales
+
+| Requisito | Implementación y comprobación |
+| --- | --- |
+| RNF-01 | Los seis usuarios de demostración tienen hash scrypt con sal aleatoria y parámetros `N=32768, r=8, p=3`; no se guarda la contraseña en claro. |
+| RNF-02 | La sesión en cookie `HttpOnly` expira tras 30 minutos sin interacción. Las consultas automáticas no renuevan su vencimiento; la interfaz cierra la sesión y muestra un aviso. |
+| RNF-03 | Las respuestas públicas excluyen contacto, dirección exacta, identificación y cuenta bancaria. La API exige rol y oculta las indicaciones privadas al proveedor hasta aceptar el trabajo. |
+| RNF-04 | Los perfiles públicos se resuelven desde un índice en memoria; la prueba hace 100 consultas simultáneas y comprueba el límite local de 1,5 segundos. |
+| RNF-05 | Eliminar una publicación marca `status: inactive` y `deletedAt`; desaparece del catálogo, pero se conserva en JSON junto con las solicitudes históricas. |
+| RNF-06 | La búsqueda usa un índice de trigramas sobre título, descripción y datos públicos del proveedor. La prueba verifica 100 búsquedas simultáneas dentro de 2 segundos en el servidor local. |
+| RNF-07 | Las mutaciones se serializan en el proceso de la API y se guardan mediante archivo temporal y sustitución atómica; una prueba envía dos cambios de estado simultáneos y comprueba que solo uno se aplica. |
+| RNF-08 | El servidor valida dos decimales y calcula conceptos, impuestos y saldos con céntimos enteros; multiplicaciones y redondeos usan `BigInt`. Cotizaciones, aprobaciones y pagos conservan fecha, actor y versión o referencia. |
+| RNF-09 | Los reportes y notas administrativas rechazan marcado y caracteres de control. Los casos guardan estado, fecha, autor de revisión e historial. |
+| RNF-10 | El servidor acepta únicamente JPEG/PNG válidos de hasta 3 MB, comprime fotos de perfiles, publicaciones y solicitudes, limita dimensiones y elimina metadatos. |
+
+`tests/nonfunctional.spec.js` prueba estas garantías. Las metas de 1,5 y 2 segundos se verifican en la máquina local de pruebas; no garantizan esos tiempos en cualquier equipo o volumen de datos. El JSON sigue siendo una base de demostración: el índice y la cola de escritura viven en un solo proceso, por lo que no sustituyen índices relacionales ni transacciones ACID entre varios servidores. Para un despliegue con varias instancias se necesita una base transaccional y almacenamiento externo para imágenes.
+
 ## Datos
 
-Los usuarios, perfiles, categorías, publicaciones y solicitudes de ejemplo están en [`data/db.json`](data/db.json). La API local lee ese archivo y guarda allí las ediciones. Las contraseñas se almacenan como hashes con sal; la sesión se mantiene en una cookie `HttpOnly` y se invalida al cerrar sesión.
+Los usuarios, perfiles, categorías, publicaciones y solicitudes de ejemplo están en [`data/db.json`](data/db.json). La API local lee ese archivo y guarda allí las ediciones. Las contraseñas se almacenan como hashes con sal; la sesión se mantiene en una cookie `HttpOnly` y se invalida al cerrar sesión o al pasar 30 minutos sin actividad.
 
 Para probar los roles, selecciona una cuenta en la pantalla de inicio de sesión o usa:
 

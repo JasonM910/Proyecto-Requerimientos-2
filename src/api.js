@@ -4,19 +4,27 @@ async function request(path, options) {
     response = await fetch(path, {
       ...options,
       credentials: 'same-origin',
-      headers: options?.body ? { 'Content-Type': 'application/json' } : undefined,
+      headers: { ...(options?.body ? { 'Content-Type': 'application/json' } : {}), ...options?.headers },
     })
   } catch {
     throw new Error('No se pudo conectar con el servidor. Comprueba que la aplicación esté en ejecución.')
   }
 
   const data = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(data?.error || 'No se pudo completar la operación.')
+  if (!response.ok) {
+    if (response.status === 401 && path !== '/api/auth/login') window.dispatchEvent(new Event('hogar:session-expired'))
+    throw new Error(data?.error || 'No se pudo completar la operación.')
+  }
   return data
 }
 
 export const getDashboard = () => request('/api/dashboard')
 export const getSession = () => request('/api/auth/session')
+export async function touchSession() {
+  const session = await request('/api/auth/session', { headers: { 'X-Hogar-Activity': '1' } })
+  if (!session.user) window.dispatchEvent(new Event('hogar:session-expired'))
+  return session
+}
 export const login = (credentials) => request('/api/auth/login', { method: 'POST', body: JSON.stringify(credentials) })
 export const logout = () => request('/api/auth/logout', { method: 'POST' })
 export const createService = (service) => request('/api/services', { method: 'POST', body: JSON.stringify(service) })

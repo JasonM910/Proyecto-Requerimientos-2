@@ -74,7 +74,7 @@ test('RF-09 y RF-10: publicar, recategorizar y eliminar actualiza el catálogo d
     const removed = await (await client.get('/api/search', { params: { q: 'alcance cuatro' } })).json()
     expect(removed.total).toBe(0)
     const stored = JSON.parse(await readFile(process.env.HOGAR_DB_PATH, 'utf8'))
-    expect(stored.services.some((item) => item.id === id)).toBe(false)
+    expect(stored.services.find((item) => item.id === id)).toEqual(expect.objectContaining({ status: 'inactive', deletedAt: expect.any(String) }))
   } finally { await client.dispose() }
 })
 

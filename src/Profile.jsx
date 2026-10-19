@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AnimatedItem, EmptyState, Page, PageFooter, PageHeader } from '@/components/page'
+import { ImagePicker } from '@/components/ImagePicker'
 import { getProfile, updateProfile } from './api.js'
 
 // RF-08: los campos privados solo se cargan en la vista del proveedor autenticado.
@@ -28,6 +29,7 @@ const toForm = (profile) => ({
   experienceYears: String(profile.experienceYears ?? ''),
   experience: profile.experience || '',
   zones: profile.zones || [],
+  images: profile.images || [],
   email: profile.email || '',
   phone: profile.phone || '',
   address: profile.address || '',
@@ -56,9 +58,7 @@ function PublicCard({ data }) {
       <div className="h-2 bg-primary/75" />
       <CardContent className="space-y-6 p-6 pt-0">
         <div className="flex items-center gap-4">
-          <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-mint font-heading text-lg font-bold text-mint-foreground">
-            {initialsOf(data.name)}
-          </span>
+          {data.images?.length ? <img src={data.images[0].dataUrl} alt={`Foto de ${data.name || 'tu perfil'}`} className="size-14 shrink-0 rounded-2xl object-cover" /> : <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-mint font-heading text-lg font-bold text-mint-foreground">{initialsOf(data.name)}</span>}
           <div className="min-w-0">
             <h3 className="break-words font-heading text-lg font-bold tracking-tight">{data.name.trim() || 'Tu nombre'}</h3>
             <p className="mt-1 break-words text-sm text-muted-foreground">{data.headline.trim() || 'Tu especialidad'}</p>
@@ -153,6 +153,7 @@ function Profile({ onNotice, onSaved }) {
       const updated = await updateProfile({
         name: form.name.trim(), headline: form.headline.trim(), about: form.about.trim(), experience: form.experience.trim(),
         experienceYears: years === '' ? null : Number(years), zones: zonesForSave,
+        images: form.images,
         email: form.email.trim(), phone: form.phone.trim(), address: form.address.trim(),
         legalId: form.legalId.trim(), verificationDocuments: form.verificationDocuments.trim(), bankAccount: form.bankAccount.trim(),
       })
@@ -190,6 +191,9 @@ function Profile({ onNotice, onSaved }) {
                 <CardDescription>Esta información aparece cuando alguien consulta tus servicios.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-5 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <ImagePicker id="pf-images" label="Foto pública del perfil" images={form.images} onChange={(images) => setForm((current) => ({ ...current, images }))} disabled={saving} maxCount={1} hint="Una foto JPG o PNG de hasta 3 MB. Se optimiza al guardar y será visible para los clientes." />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="pf-name">Nombre o negocio <span className="text-destructive" aria-hidden="true">*</span></Label>
                   <Input id="pf-name" maxLength={60} placeholder="Ej. Carlos Mora" value={form.name} onChange={set('name')} required aria-invalid={submitted && Boolean(errors.name)} aria-describedby={submitted && errors.name ? 'pf-name-error' : undefined} />

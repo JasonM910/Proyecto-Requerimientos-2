@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import { readFile, rename, unlink, writeFile } from 'node:fs/promises'
+import { readFile, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import sharp from 'sharp'
 import { clearSession, createSession, publicUser, sessionUser, verifyCredentials } from './auth.js'
 
 const databasePath = process.env.HOGAR_DB_PATH
@@ -13,6 +14,8 @@ const maxImageBytes = 3 * 1024 * 1024
 const maxImageBodyBytes = 13 * 1024 * 1024
 const maxImages = 3
 let mutationQueue = Promise.resolve()
+let databaseCache = null
+let databaseLoad = null
 
 class ApiError extends Error {
   constructor(status, message) {
@@ -22,11 +25,20 @@ class ApiError extends Error {
 }
 
 async function readDatabase() {
-  const database = JSON.parse(await readFile(databasePath, 'utf8'))
-  if (!Array.isArray(database.users) || !Array.isArray(database.categories) || !Array.isArray(database.services) || !Array.isArray(database.profiles) || !Array.isArray(database.clientProfiles) || !Array.isArray(database.requests)) {
-    throw new Error('La estructura de data/db.json no es válida.')
-  }
-  return database
+  const info = await stat(databasePath, { bigint: true })
+  const stamp = `${info.ino}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`
+  if (databaseCache?.stamp === stamp) return databaseCache.database
+  if (databaseLoad?.stamp === stamp) return databaseLoad.promise
+  const promise = readFile(databasePath, 'utf8').then((contents) => {
+    const database = JSON.parse(contents)
+    if (!Array.isArray(database.users) || !Array.isArray(database.categories) || !Array.isArray(database.services) || !Array.isArray(database.profiles) || !Array.isArray(database.clientProfiles) || !Array.isArray(database.requests)) {
+      throw new Error('La estructura de data/db.json no es válida.')
+    }
+    databaseCache = { stamp, database }
+    return database
+  })
+  databaseLoad = { stamp, promise }
+  try { return await promise } finally { if (databaseLoad?.promise === promise) databaseLoad = null }
 }
 
 async function writeDatabase(database) {
@@ -34,6 +46,7 @@ async function writeDatabase(database) {
   try {
     await writeFile(temporaryPath, `${JSON.stringify(database, null, 2)}\n`, 'utf8')
     await rename(temporaryPath, databasePath)
+    databaseCache = null
   } catch (error) {
     try { await unlink(temporaryPath) } catch { /* Nothing to clean up. */ }
     throw error
@@ -42,8 +55,8 @@ async function writeDatabase(database) {
 
 function mutateDatabase(change) {
   const operation = mutationQueue.then(async () => {
-    const database = await readDatabase()
-    const result = change(database)
+    const database = structuredClone(await readDatabase())
+    const result = await change(database)
     await writeDatabase(database)
     return result
   })
@@ -67,13 +80,15 @@ async function readBody(request, limit = maxBodyBytes) {
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')) } catch { throw new ApiError(400, 'El contenido debe ser JSON válido.') }
 }
 
-function validateImages(value, fallback = []) {
+async function validateImages(value, fallback = [], { maxCount = maxImages, maxDimension = 1600 } = {}) {
   if (value === undefined) return fallback
-  if (!Array.isArray(value) || value.length > maxImages) throw new ApiError(400, `Puedes adjuntar hasta ${maxImages} imágenes.`)
-  return value.map((image) => {
+  if (!Array.isArray(value) || value.length > maxCount) throw new ApiError(400, `Puedes adjuntar hasta ${maxCount} imágenes.`)
+  return Promise.all(value.map(async (image) => {
     if (!image || typeof image !== 'object' || Array.isArray(image)) throw new ApiError(400, 'La imagen no es válida.')
     const name = cleanText(image.name, 100, 'El nombre de la imagen')
     if (!name) throw new ApiError(400, 'La imagen debe tener un nombre.')
+    const stored = fallback.find((item) => item.name === name && item.dataUrl === image.dataUrl)
+    if (stored) return stored
     if (typeof image.dataUrl !== 'string') throw new ApiError(400, 'La imagen no es válida.')
     const match = /^data:image\/(jpeg|png);base64,([A-Za-z0-9+/]+={0,2})$/.exec(image.dataUrl)
     if (!match) throw new ApiError(400, 'Adjunta únicamente imágenes JPG o PNG.')
@@ -81,20 +96,26 @@ function validateImages(value, fallback = []) {
     if (!bytes.length || bytes.length > maxImageBytes || bytes.toString('base64') !== match[2]) {
       throw new ApiError(400, 'Cada imagen debe ser válida y pesar menos de 3 MB.')
     }
-    const isPng = bytes.length >= 45
-      && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
-      && bytes.toString('ascii', 12, 16) === 'IHDR'
-      && bytes.readUInt32BE(16) > 0 && bytes.readUInt32BE(20) > 0
-      && bytes.toString('ascii', bytes.length - 8, bytes.length - 4) === 'IEND'
-    const isJpeg = bytes.length >= 4 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff && bytes.at(-2) === 0xff && bytes.at(-1) === 0xd9
-    if ((match[1] === 'png' && !isPng) || (match[1] === 'jpeg' && !isJpeg)) {
-      throw new ApiError(400, 'El contenido de la imagen no coincide con su formato JPG o PNG.')
+    try {
+      const source = sharp(bytes, { limitInputPixels: 16_000_000 })
+      const metadata = await source.metadata()
+      if (metadata.format !== match[1] || !metadata.width || !metadata.height || (metadata.pages ?? 1) !== 1) {
+        throw new ApiError(400, 'El contenido de la imagen no coincide con su formato JPG o PNG.')
+      }
+      const pipeline = source.autoOrient().resize({ width: maxDimension, height: maxDimension, fit: 'inside', withoutEnlargement: true })
+      const optimized = await (match[1] === 'jpeg'
+        ? pipeline.jpeg({ quality: 82, mozjpeg: true }).toBuffer()
+        : pipeline.png({ palette: true, quality: 90, compressionLevel: 9 }).toBuffer())
+      if (!optimized.length || optimized.length > maxImageBytes) throw new ApiError(400, 'La imagen optimizada supera el límite de 3 MB.')
+      return { name, dataUrl: `data:image/${match[1]};base64,${optimized.toString('base64')}` }
+    } catch (error) {
+      if (error instanceof ApiError) throw error
+      throw new ApiError(400, 'La imagen no se pudo procesar. Usa un archivo JPG o PNG válido.')
     }
-    return { name, dataUrl: image.dataUrl }
-  })
+  }))
 }
 
-function validateService(payload, database, existingImages = []) {
+async function validateService(payload, database, existingImages = []) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new ApiError(400, 'Datos del servicio no válidos.')
   const title = typeof payload.title === 'string' ? payload.title.trim() : ''
   const description = typeof payload.description === 'string' ? payload.description.trim() : ''
@@ -102,7 +123,7 @@ function validateService(payload, database, existingImages = []) {
   if (!title || title.length > 80) throw new ApiError(400, 'El título es obligatorio y debe tener como máximo 80 caracteres.')
   if (!description || description.length > 800) throw new ApiError(400, 'La descripción es obligatoria y debe tener como máximo 800 caracteres.')
   if (!database.categories.some((item) => item.name === category)) throw new ApiError(400, 'Selecciona una categoría válida.')
-  return { title: protectPublicText(title), description: protectPublicText(description), category, images: validateImages(payload.images, existingImages) }
+  return { title: protectPublicText(title), description: protectPublicText(description), category, images: await validateImages(payload.images, existingImages) }
 }
 
 function cleanText(value, max, label) {
@@ -117,7 +138,7 @@ function initialsOf(name) {
   return name.split(' ').filter(Boolean).slice(0, 2).map((word) => word[0]).join('').toUpperCase()
 }
 
-function validateProfile(payload) {
+async function validateProfile(payload, existingImages = []) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new ApiError(400, 'Datos del perfil no válidos.')
   const name = cleanText(payload.name, 60, 'El nombre')
   if (!name) throw new ApiError(400, 'El nombre es obligatorio.')
@@ -140,6 +161,7 @@ function validateProfile(payload) {
     experienceYears: years,
     experience: protectPublicText(cleanText(payload.experience, 600, 'La descripción de la experiencia')),
     zones,
+    images: await validateImages(payload.images, existingImages, { maxCount: 1, maxDimension: 512 }),
     email,
     phone: cleanText(payload.phone, 120, 'El teléfono'),
     address: cleanText(payload.address, 120, 'La dirección'),
@@ -153,12 +175,12 @@ function findProfile(database, providerId = demoUserId) {
   const existing = database.profiles?.find((item) => item.providerId === providerId)
   if (existing) return existing
   const user = database.users.find((item) => item.id === providerId)
-  return { providerId, name: user?.name || '', headline: '', about: '', experienceYears: null, experience: '', zones: [], email: '', phone: '', address: '', legalId: '', verificationDocuments: '', bankAccount: '', updatedAt: null }
+  return { providerId, name: user?.name || '', headline: '', about: '', experienceYears: null, experience: '', zones: [], images: [], email: '', phone: '', address: '', legalId: '', verificationDocuments: '', bankAccount: '', updatedAt: null }
 }
 
 function toPublicProfile(profile) {
-  const { providerId, name, headline, about, experienceYears, experience, zones } = profile
-  return { providerId, name, headline, about, experienceYears, experience, zones, verified: isVerified(profile) }
+  const { providerId, name, headline, about, experienceYears, experience, zones, images = [] } = profile
+  return { providerId, name, headline, about, experienceYears, experience, zones, images, verified: isVerified(profile) }
 }
 
 function findClientProfile(database, clientId) {
@@ -188,6 +210,18 @@ const requestUrgencies = ['Flexible', 'Próximos días', 'Urgente']
 function requiredText(value, min, max, label) {
   const text = cleanText(value, max, label)
   if (text.length < min) throw new ApiError(400, `${label} debe tener al menos ${min} caracteres.`)
+  return text
+}
+
+function safeReportText(value, min, max, label) {
+  const text = requiredText(value, min, max, label)
+  const forbiddenControl = [...text].some((character) => {
+    const code = character.codePointAt(0)
+    return (code < 32 && character !== '\n' && character !== '\t') || code === 127
+  })
+  if (/[<>]|javascript:|data:text\/html/i.test(text) || forbiddenControl) {
+    throw new ApiError(400, `${label} contiene caracteres o código no permitido.`)
+  }
   return text
 }
 
@@ -256,8 +290,20 @@ const taxRates = [0, 13]
 const paymentMethods = ['SINPE Móvil', 'Transferencia', 'Tarjeta (simulado)', 'Efectivo']
 const paidStatuses = ['Aceptado', 'En proceso', 'Finalizado']
 const maxTotalCents = 10_000_000_000
-const cents = (value) => Math.round(value * 100)
-const isMoney = (value, max) => typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= max && Math.abs(cents(value) - value * 100) < 1e-7
+function decimalCents(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null
+  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(String(value))
+  if (!match) return null
+  const result = Number(match[1]) * 100 + Number((match[2] || '').padEnd(2, '0'))
+  return Number.isSafeInteger(result) ? result : null
+}
+function cents(value) {
+  const result = decimalCents(value)
+  if (result === null) throw new ApiError(500, 'Se encontró un monto inválido en los datos guardados.')
+  return result
+}
+const isMoney = (value, max) => decimalCents(value) !== null && value > 0 && value <= max
+const roundRatio = (numerator, denominator) => Number((BigInt(numerator) + BigInt(denominator) / 2n) / BigInt(denominator))
 
 // Los cálculos se hacen en céntimos enteros para evitar errores de redondeo.
 function validateQuoteItems(payload) {
@@ -272,10 +318,10 @@ function validateQuoteItems(payload) {
     if (!quoteItemTypes.includes(type)) throw new ApiError(400, 'Selecciona un tipo de concepto válido.')
     if (!isMoney(entry.quantity, 1000)) throw new ApiError(400, 'La cantidad debe ser mayor que cero y tener hasta dos decimales.')
     if (!isMoney(entry.unitPrice, 100_000_000)) throw new ApiError(400, 'El precio unitario debe ser mayor que cero y tener hasta dos decimales.')
-    return { description, type, quantity: entry.quantity, unitPrice: entry.unitPrice, lineCents: Math.round(entry.quantity * cents(entry.unitPrice)) }
+    return { description, type, quantity: entry.quantity, unitPrice: entry.unitPrice, lineCents: roundRatio(BigInt(cents(entry.quantity)) * BigInt(cents(entry.unitPrice)), 100) }
   })
   const subtotalCents = items.reduce((sum, entry) => sum + entry.lineCents, 0)
-  const taxCents = Math.round(subtotalCents * taxRate / 100)
+  const taxCents = roundRatio(BigInt(subtotalCents) * BigInt(taxRate), 100)
   const totalCents = subtotalCents + taxCents
   if (totalCents > maxTotalCents) throw new ApiError(400, 'El total no puede superar ₡100 000 000.')
   return {
@@ -314,7 +360,7 @@ function financeView(item) {
   return {
     quote, quotes: item.quotes ?? [], counter: item.counter ?? null,
     agreement: item.agreement ?? null, payments: item.payments ?? [], invoice: item.invoice ?? null,
-    paid, balance: total === null ? null : Math.round((cents(total) - cents(paid))) / 100,
+    paid, balance: total === null ? null : (cents(total) - cents(paid)) / 100,
   }
 }
 
@@ -352,40 +398,84 @@ function requireRole(user, role) {
 
 // La búsqueda conserva solo la información pública del proveedor.
 const fold = (value) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+const activeService = (service) => service.status !== 'inactive'
+const searchIndexCache = new WeakMap()
+function trigrams(value) {
+  const grams = new Set()
+  for (let index = 0; index <= value.length - 3; index += 1) grams.add(value.slice(index, index + 3))
+  return grams
+}
+
+function indexedCatalog(database) {
+  const cached = searchIndexCache.get(database)
+  if (cached) return cached
+  const profiles = new Map(database.profiles.map((profile) => [profile.providerId, profile]))
+  const categoryGroups = new Map()
+  for (const category of database.categories) {
+    const group = category.group || 'Otros servicios'
+    if (!categoryGroups.has(group)) categoryGroups.set(group, new Set())
+    categoryGroups.get(group).add(category.name)
+  }
+  const zoneOptions = new Map()
+  for (const profile of profiles.values()) for (const zone of profile.zones ?? []) zoneOptions.set(fold(zone), zoneOptions.get(fold(zone)) || zone)
+  const records = database.services.filter(activeService).map((service) => {
+    const profile = profiles.get(service.providerId) || findProfile(database, service.providerId)
+    return {
+      service, profile, title: fold(service.title), description: fold(service.description),
+      meta: fold(`${service.category} ${profile.name} ${profile.headline}`),
+      zones: new Set((profile.zones ?? []).map(fold)), updatedAt: Date.parse(service.updatedAt) || 0,
+    }
+  })
+  const textIndex = new Map()
+  records.forEach((record, position) => {
+    for (const gram of trigrams(`${record.title} ${record.description} ${record.meta}`)) {
+      if (!textIndex.has(gram)) textIndex.set(gram, new Set())
+      textIndex.get(gram).add(position)
+    }
+  })
+  const index = { records, profiles, textIndex, categoryGroups, zones: [...zoneOptions.values()].sort((a, b) => a.localeCompare(b, 'es')) }
+  searchIndexCache.set(database, index)
+  return index
+}
 
 function searchServices(database, params) {
+  const index = indexedCatalog(database)
   const terms = fold(params.get('q')).slice(0, 100).split(/\s+/).filter(Boolean).slice(0, 8)
   const category = params.get('category') || ''
   const group = params.get('group') || ''
-  const groupCategories = new Set(database.categories
-    .filter((item) => (item.group || 'Otros servicios') === group)
-    .map((item) => item.name))
+  const groupCategories = index.categoryGroups.get(group)
   const zone = fold(params.get('zone'))
-  const zoneOptions = new Map()
-  for (const profile of database.profiles ?? []) for (const item of profile.zones ?? []) zoneOptions.set(fold(item), zoneOptions.get(fold(item)) || item)
+
+  let candidates = null
+  for (const term of terms.filter((value) => value.length >= 3)) {
+    for (const gram of trigrams(term)) {
+      const positions = index.textIndex.get(gram)
+      if (!positions) return { categories: database.categories, zones: index.zones, total: 0, results: [] }
+      candidates = candidates === null ? new Set(positions) : new Set([...candidates].filter((position) => positions.has(position)))
+      if (!candidates.size) return { categories: database.categories, zones: index.zones, total: 0, results: [] }
+    }
+  }
 
   const found = []
-  for (const service of database.services) {
-    if (group && !groupCategories.has(service.category)) continue
+  for (const position of candidates ?? index.records.keys()) {
+    const record = index.records[position]
+    const { service, profile } = record
+    if (group && !groupCategories?.has(service.category)) continue
     if (category && service.category !== category) continue
-    const profile = findProfile(database, service.providerId)
-    if (zone && !(profile.zones ?? []).some((item) => fold(item) === zone)) continue
+    if (zone && !record.zones.has(zone)) continue
 
-    const title = fold(service.title)
-    const meta = fold(`${service.category} ${profile.name} ${profile.headline}`)
-    const description = fold(service.description)
     let score = 0
     const matchesAll = terms.every((term) => {
-      const inTitle = title.includes(term)
-      const inMeta = meta.includes(term)
-      const inDescription = description.includes(term)
+      const inTitle = record.title.includes(term)
+      const inMeta = record.meta.includes(term)
+      const inDescription = record.description.includes(term)
       score += (inTitle ? 3 : 0) + (inMeta ? 2 : 0) + (inDescription ? 1 : 0)
       return inTitle || inMeta || inDescription
     })
     if (!matchesAll) continue
 
     found.push({
-      score,
+      score, updatedAt: record.updatedAt,
       service: {
         id: service.id,
         title: service.title,
@@ -393,14 +483,14 @@ function searchServices(database, params) {
         description: service.description,
         images: service.images ?? [],
         updatedAt: service.updatedAt,
-        provider: { id: profile.providerId, name: profile.name, headline: profile.headline, about: profile.about, experienceYears: profile.experienceYears, experience: profile.experience, zones: profile.zones ?? [], verified: isVerified(profile) },
+        provider: { id: profile.providerId, name: profile.name, headline: profile.headline, about: profile.about, experienceYears: profile.experienceYears, experience: profile.experience, zones: profile.zones ?? [], images: profile.images ?? [], verified: isVerified(profile) },
       },
     })
   }
-  found.sort((a, b) => b.score - a.score || new Date(b.service.updatedAt) - new Date(a.service.updatedAt))
+  found.sort((a, b) => b.score - a.score || b.updatedAt - a.updatedAt)
   return {
     categories: database.categories,
-    zones: [...zoneOptions.values()].sort((a, b) => a.localeCompare(b, 'es')),
+    zones: index.zones,
     total: found.length,
     results: found.map((item) => item.service),
   }
@@ -414,7 +504,7 @@ export async function jsonApi(request, response, next) {
   try {
     if (pathname === '/api/auth/session' && request.method === 'GET') {
       const database = await readDatabase()
-      const user = sessionUser(request, database)
+      const user = sessionUser(request, response, database)
       return respond(response, 200, { user: user ? publicUser(user) : null })
     }
 
@@ -428,7 +518,7 @@ export async function jsonApi(request, response, next) {
       if (!validIdentifier || identifier.length > 120 || typeof password !== 'string' || !password || password.length > 200) {
         throw new ApiError(400, 'Ingresa un correo o usuario válido y una contraseña.')
       }
-      const user = verifyCredentials(await readDatabase(), identifier, password)
+      const user = await verifyCredentials(await readDatabase(), identifier, password)
       if (!user) throw new ApiError(401, 'Credenciales incorrectas.')
       createSession(request, response, user)
       return respond(response, 200, { user: publicUser(user) })
@@ -440,12 +530,12 @@ export async function jsonApi(request, response, next) {
     }
 
     const database = await readDatabase()
-    const user = sessionUser(request, database)
+    const user = sessionUser(request, response, database)
     if (!user) throw new ApiError(401, 'Inicia sesión para continuar.')
 
     if (pathname === '/api/dashboard' && request.method === 'GET') {
       requireRole(user, 'Proveedor')
-      return respond(response, 200, { user: publicUser(user), categories: database.categories, services: database.services.filter((item) => item.providerId === user.id) })
+      return respond(response, 200, { user: publicUser(user), categories: database.categories, services: database.services.filter((item) => item.providerId === user.id && activeService(item)) })
     }
 
     if (pathname === '/api/search' && request.method === 'GET') {
@@ -461,14 +551,17 @@ export async function jsonApi(request, response, next) {
 
     if (pathname === '/api/profile/public' && request.method === 'GET') {
       requireRole(user, 'Cliente')
-      return respond(response, 200, toPublicProfile(findProfile(database)))
+      const providerId = new URL(request.url, 'http://localhost').searchParams.get('providerId') || demoUserId
+      const provider = database.users.find((item) => item.id === providerId && item.role === 'Proveedor')
+      if (!provider) throw new ApiError(404, 'Proveedor no encontrado.')
+      return respond(response, 200, toPublicProfile(indexedCatalog(database).profiles.get(providerId) || findProfile(database, providerId)))
     }
 
     if (pathname === '/api/profile' && request.method === 'PUT') {
       requireRole(user, 'Proveedor')
-      const payload = await readBody(request)
-      const profile = await mutateDatabase((database) => {
-        const fields = validateProfile(payload)
+      const payload = await readBody(request, maxImageBodyBytes)
+      const profile = await mutateDatabase(async (database) => {
+        const fields = await validateProfile(payload, database.profiles.find((item) => item.providerId === user.id)?.images ?? [])
         let current = database.profiles.find((item) => item.providerId === user.id)
         if (!current) {
           current = { providerId: user.id }
@@ -519,8 +612,8 @@ export async function jsonApi(request, response, next) {
     if (pathname === '/api/client/requests' && request.method === 'POST') {
       requireRole(user, 'Cliente')
       const payload = await readBody(request, maxImageBodyBytes)
-      const created = await mutateDatabase((currentDatabase) => {
-        const service = currentDatabase.services.find((item) => item.id === payload?.serviceId)
+      const created = await mutateDatabase(async (currentDatabase) => {
+        const service = currentDatabase.services.find((item) => item.id === payload?.serviceId && activeService(item))
         if (!service) throw new ApiError(404, 'El servicio ya no está disponible.')
         if (!currentDatabase.users.some((item) => item.id === service.providerId && item.role === 'Proveedor')) {
           throw new ApiError(404, 'El proveedor no está disponible.')
@@ -532,7 +625,7 @@ export async function jsonApi(request, response, next) {
           throw new ApiError(400, 'Selecciona una zona de atención del proveedor.')
         }
         const directions = cleanText(payload.directions, 300, 'Las indicaciones privadas')
-        const images = validateImages(payload.images)
+        const images = await validateImages(payload.images)
         if (!requestUrgencies.includes(payload.urgency)) throw new ApiError(400, 'Selecciona una urgencia válida.')
         const at = new Date().toISOString()
         const item = {
@@ -670,7 +763,7 @@ export async function jsonApi(request, response, next) {
           const note = cleanText(payload.message, 600, 'El mensaje')
           const quote = currentQuote(item)
           const at = new Date().toISOString()
-          item.agreement = { total: item.counter.amount, quoteVersion: quote.version, adjustment: Math.round(cents(item.counter.amount) - cents(quote.total)) / 100, via: 'Contraoferta aceptada por el proveedor', at }
+          item.agreement = { total: item.counter.amount, quoteVersion: quote.version, adjustment: (cents(item.counter.amount) - cents(quote.total)) / 100, via: 'Contraoferta aceptada por el proveedor', at }
           item.estimate = item.counter.amount
           const agreed = item.counter.amount
           item.counter = null
@@ -768,7 +861,7 @@ export async function jsonApi(request, response, next) {
         const next = payload?.action === 'review' && report.status === 'Recibido' ? 'En revisión'
           : payload?.action === 'resolve' && report.status === 'En revisión' ? 'Resuelto' : null
         if (!next) throw new ApiError(409, 'Esta acción no corresponde al estado actual del reporte.')
-        const note = requiredText(payload.note, 5, 500, 'La respuesta del equipo')
+        const note = safeReportText(payload.note, 5, 500, 'La respuesta del equipo')
         const at = new Date().toISOString()
         report.status = next
         report.updatedAt = at
@@ -787,7 +880,7 @@ export async function jsonApi(request, response, next) {
       const payload = await readBody(request)
       const created = await mutateDatabase((currentDatabase) => {
         if (!reportCategories.includes(payload?.category)) throw new ApiError(400, 'Selecciona una categoría para el reporte.')
-        const description = requiredText(payload.description, 10, 800, 'La descripción del reporte')
+        const description = safeReportText(payload.description, 10, 800, 'La descripción del reporte')
         currentDatabase.reports ??= []
         const today = currentDatabase.reports.filter((item) => item.reporterId === user.id && Date.now() - new Date(item.createdAt) < 86_400_000)
         if (today.length >= 10) throw new ApiError(429, 'Alcanzaste el límite de reportes por día.')
@@ -821,8 +914,8 @@ export async function jsonApi(request, response, next) {
     if (pathname === '/api/services' && request.method === 'POST') {
       requireRole(user, 'Proveedor')
       const payload = await readBody(request, maxImageBodyBytes)
-      const service = await mutateDatabase((database) => {
-        const fields = validateService(payload, database)
+      const service = await mutateDatabase(async (database) => {
+        const fields = await validateService(payload, database)
         const timestamp = new Date().toISOString()
         const created = { id: randomUUID(), providerId: user.id, ...fields, createdAt: timestamp, updatedAt: timestamp }
         database.services.unshift(created)
@@ -835,10 +928,10 @@ export async function jsonApi(request, response, next) {
     if (match && request.method === 'PUT') {
       requireRole(user, 'Proveedor')
       const payload = await readBody(request, maxImageBodyBytes)
-      const service = await mutateDatabase((database) => {
-        const current = database.services.find((item) => item.id === match[1] && item.providerId === user.id)
+      const service = await mutateDatabase(async (database) => {
+        const current = database.services.find((item) => item.id === match[1] && item.providerId === user.id && activeService(item))
         if (!current) throw new ApiError(404, 'El servicio no existe.')
-        Object.assign(current, validateService(payload, database, current.images ?? []), { updatedAt: new Date().toISOString() })
+        Object.assign(current, await validateService(payload, database, current.images ?? []), { updatedAt: new Date().toISOString() })
         return current
       })
       return respond(response, 200, service)
@@ -847,9 +940,10 @@ export async function jsonApi(request, response, next) {
     if (match && request.method === 'DELETE') {
       requireRole(user, 'Proveedor')
       await mutateDatabase((database) => {
-        const index = database.services.findIndex((item) => item.id === match[1] && item.providerId === user.id)
-        if (index === -1) throw new ApiError(404, 'El servicio no existe.')
-        database.services.splice(index, 1)
+        const service = database.services.find((item) => item.id === match[1] && item.providerId === user.id && activeService(item))
+        if (!service) throw new ApiError(404, 'El servicio no existe.')
+        const at = new Date().toISOString()
+        Object.assign(service, { status: 'inactive', deletedAt: at, updatedAt: at })
       })
       return respond(response, 200, { ok: true })
     }

@@ -7,7 +7,7 @@
       "role": "Proveedor",
       "email": "proveedor@hogar.test",
       "username": "proveedor.demo",
-      "passwordHash": "scrypt:3534991b62725c2b592829159f6e7c7d:87862c6eaf0bf9563c7b3ecc512fbdd395c7ba1522009e055497595d456b66bf19c6db204e3aa6c8207cd797770cd86d77d6e2dd1b5348c8081ea3093e4d71dc"
+      "passwordHash": "scrypt:32768:8:3:69855aa42f3c1cc331e0866e0ba0d0a7:55d53203406ca9fe998f71e2c8c0bbee26a2d94d0d6252a8e2c2fbc39e33b749e7a2ac6f3cc0db4256ffa31e232e296bc16503de61e338ae58b6c861053c11b7"
     },
     {
       "id": "proveedor-2",
@@ -16,7 +16,7 @@
       "role": "Proveedor",
       "email": "laura@hogar.test",
       "username": "laura.demo",
-      "passwordHash": "scrypt:ee7d003afa8c1a0035159ef349d82a25:17fb6b61ee94a7fa1c20358882b9a18277345dd7b5899445ad0a9842eef000b5eee0a36cf37bf485aca6d11476ad4949884f8f4efa15270cc9cf497d8c1934cf"
+      "passwordHash": "scrypt:32768:8:3:aede33e21ad1669ab6405ac646a3da05:d2fa84a6523e63481dc73cdbee679a0ea95f0249a0190a59398481c08da406a5b4c5c0ed9df038001d06b86f29d20f87422452bf0e956472601f04da85bab1f9"
     },
     {
       "id": "proveedor-3",
@@ -25,7 +25,7 @@
       "role": "Proveedor",
       "email": "andres@hogar.test",
       "username": "andres.demo",
-      "passwordHash": "scrypt:d172d6fd396ec21e94373574b38c1dce:342d0c41a24e909563822f5ed4149f92c39604e961e696e73ec6defc1eb8c94fa7093c9fa7cbac4a21a4f732696a0cbd78f56a0514111f39a17dfca029a843a4"
+      "passwordHash": "scrypt:32768:8:3:e3a9ef9aabfb202cef47ba785e89a2f7:ac13f19b09d8a8a1e4526248181e5e30cb2dea43ed3de1d7d446dfc8d02d5a2242aeba5a5aaa4bd765072614a0b7813d7f311681041b2f1e73501168cd446edc"
     },
     {
       "id": "proveedor-4",
@@ -34,7 +34,7 @@
       "role": "Proveedor",
       "email": "marta@hogar.test",
       "username": "marta.demo",
-      "passwordHash": "scrypt:71f87ea43d2102f676fc42c5455ce9a2:c7ac26237e9381775f4af2274e3e3f44239c9baffde80dda33895dee1e00e8caef6ba9143a98f9c98f2c0df8fea029d2b7929553d84abdef09fd49d43f413ec0"
+      "passwordHash": "scrypt:32768:8:3:658026382e14f6727643ddadf8aaf3d6:534816ce4949cceaaa72c7020d5182af6d15a1668e8c743a8475758e516a242e59908e965578dae7c773d9c431cfec1676ea4597e052e5b5903cf27e1d697cf6"
     },
     {
       "id": "cliente-demo",
@@ -43,7 +43,7 @@
       "role": "Cliente",
       "email": "cliente@hogar.test",
       "username": "cliente.demo",
-      "passwordHash": "scrypt:daa0cd8000591a71ebb2ad79a02564fa:2df4a6240e04665874673689572629da481fe811efea101bb9a7e9d3818f23b15fe2cd6626981f5fc58ff6e6eb2b757f607ef71f01b747888448338c24d62c6f"
+      "passwordHash": "scrypt:32768:8:3:e45e1ebb962e3bee41f28c1e48ebf030:2606e6ee156a29aa235837627de9d1512461ebe546456a392b5982cd6381e22253b1314dc2d1774a3addaf4ae1c548eab9eb467dc755cddd15accee08f560c59"
     },
     {
       "id": "admin-demo",
@@ -52,7 +52,7 @@
       "role": "Administrador",
       "email": "admin@hogar.test",
       "username": "admin.demo",
-      "passwordHash": "scrypt:4acdf5660d8f845d2fc8cce9b900bbff:fd0e2dd09f588c5d7215fcc37c46c9dad2b5a49b8cbc35cd4f8d4fb26c0e4f440748a94421d5b49994cf7d9c93189aa6b5a07470c6ac54d77e919893f98bef10"
+      "passwordHash": "scrypt:32768:8:3:533642415084097eaeac7c556bba4c1d:58c50955a8dcd0462e2cfb589f2590076d8b8d4134a3ddb809b41ec9e51c6318a662e4233bcba2ef80c13c3d52cf2d62b61da915b6178c6bc365be4cdd344b0a"
     }
   ],
   "categories": [

@@ -156,7 +156,7 @@ function Search({ onRequestCreated, onNotice }) {
                     <p className="mb-5 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{service.description}</p>
                     <div className="mt-auto border-t border-border/70 pt-4">
                       <div className="mb-3 flex items-center gap-2.5">
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-primary" aria-hidden="true">{initialsOf(service.provider.name)}</span>
+                        {service.provider.images?.length ? <img src={service.provider.images[0].dataUrl} alt={`Foto de ${service.provider.name}`} className="size-9 shrink-0 rounded-full object-cover" /> : <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-primary" aria-hidden="true">{initialsOf(service.provider.name)}</span>}
                         <div className="min-w-0"><p className="flex items-center gap-1.5 text-sm font-semibold"><span className="truncate">{service.provider.name}</span>{service.provider.verified && <VerifiedBadge compact />}</p><p className="truncate text-xs text-muted-foreground">{service.provider.headline || 'Proveedor de servicios'}</p></div>
                       </div>
                       <Zones zones={service.provider.zones} max={3} />
@@ -190,7 +190,7 @@ function Search({ onRequestCreated, onNotice }) {
           <ImageGallery images={detail.images} label="Fotos del servicio" altPrefix="Foto del servicio" />
           <section className="space-y-4 rounded-xl border border-border bg-background p-4 sm:p-5" aria-label="Perfil público del proveedor">
             <div className="flex items-center gap-3">
-              <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-primary" aria-hidden="true">{initialsOf(detail.provider.name)}</span>
+              {detail.provider.images?.length ? <img src={detail.provider.images[0].dataUrl} alt={`Foto de ${detail.provider.name}`} className="size-12 shrink-0 rounded-full object-cover" /> : <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-primary" aria-hidden="true">{initialsOf(detail.provider.name)}</span>}
               <div><h3 className="flex flex-wrap items-center gap-2 font-heading font-bold text-brand">{detail.provider.name}{detail.provider.verified && <VerifiedBadge />}</h3><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{detail.provider.headline || 'Proveedor de servicios'}{detail.provider.experienceYears != null && ` · ${yearsLabel(detail.provider.experienceYears)}`}</p></div>
             </div>
             {detail.provider.about && <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{detail.provider.about}</p>}
